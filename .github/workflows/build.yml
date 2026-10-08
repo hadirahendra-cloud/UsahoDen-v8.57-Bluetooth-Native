@@ -57,4 +57,191 @@ jobs:
 
           echo "Android SDK siap."
 
-     
+      - name: Cari ZIP yang BENAR
+        shell: bash
+        run: |
+          set -e
+
+          ZIP="./UsahoDen-v8.60-Bluetooth-Native-OPSI-DATA-BACKUP-FOLDER.zip"
+
+          echo "Mencari ZIP:"
+          echo "$ZIP"
+
+          if [ ! -f "$ZIP" ]; then
+            echo "ERROR: ZIP tidak ditemukan."
+            echo ""
+            echo "ZIP yang tersedia:"
+            find . -maxdepth 1 -type f -name "*.zip" -printf "%f\n"
+            exit 1
+          fi
+
+          echo "ZIP ditemukan:"
+          ls -lh "$ZIP"
+
+          rm -rf build-project
+          mkdir -p build-project
+
+          unzip -q "$ZIP" -d build-project
+
+      - name: Verifikasi project Android
+        shell: bash
+        run: |
+          set -e
+
+          SETTINGS="$(find build-project \
+            -type f \
+            \( -name "settings.gradle" -o -name "settings.gradle.kts" \) \
+            -print -quit)"
+
+          if [ -z "$SETTINGS" ]; then
+            echo "ERROR: Project Android tidak ditemukan."
+
+            echo "Isi ZIP:"
+            find build-project -maxdepth 7 -type f | head -250
+
+            exit 1
+          fi
+
+          PROJECT="$(dirname "$SETTINGS")"
+
+          echo "PROJECT=$PROJECT"
+
+          echo "PROJECT=$PROJECT" >> "$GITHUB_ENV"
+
+      - name: Verifikasi Native Backup Folder
+        shell: bash
+        run: |
+          set -e
+
+          MAIN="$PROJECT/app/src/main/java/com/usahoden/app/MainActivity.java"
+          HTML="$PROJECT/app/src/main/assets/index.html"
+
+          echo "Memeriksa MainActivity:"
+          echo "$MAIN"
+
+          echo "Memeriksa HTML:"
+          echo "$HTML"
+
+          if [ ! -f "$MAIN" ]; then
+            echo "ERROR: MainActivity.java tidak ditemukan."
+            exit 1
+          fi
+
+          if [ ! -f "$HTML" ]; then
+            echo "ERROR: index.html tidak ditemukan."
+            exit 1
+          fi
+
+          if ! grep -q "backupDataToFolder" "$MAIN"; then
+            echo "ERROR: backupDataToFolder tidak ditemukan."
+            exit 1
+          fi
+
+          if ! grep -q "ACTION_OPEN_DOCUMENT_TREE" "$MAIN"; then
+            echo "ERROR: ACTION_OPEN_DOCUMENT_TREE tidak ditemukan."
+            exit 1
+          fi
+
+          if ! grep -q "UsahoDenNative.backupDataToFolder" "$HTML"; then
+            echo "ERROR: HTML belum memanggil Native Backup Folder."
+            exit 1
+          fi
+
+          echo ""
+          echo "======================================"
+          echo "NATIVE BACKUP FOLDER TERDETEKSI"
+          echo "======================================"
+
+      - name: Cek versi aplikasi
+        shell: bash
+        run: |
+          set -e
+
+          echo "Versi aplikasi:"
+
+          if [ -f "$PROJECT/app/build.gradle" ]; then
+            grep -n "versionCode" "$PROJECT/app/build.gradle" || true
+            grep -n "versionName" "$PROJECT/app/build.gradle" || true
+          fi
+
+          if [ -f "$PROJECT/app/build.gradle.kts" ]; then
+            grep -n "versionCode" "$PROJECT/app/build.gradle.kts" || true
+            grep -n "versionName" "$PROJECT/app/build.gradle.kts" || true
+          fi
+
+      - name: Build APK Debug
+        shell: bash
+        run: |
+          set -e
+
+          echo "======================================"
+          echo "MEMULAI BUILD APK"
+          echo "======================================"
+
+          cd "$PROJECT"
+
+          echo "Project:"
+          pwd
+
+          echo ""
+          echo "Isi project:"
+          ls -lah
+
+          echo ""
+          echo "Menjalankan Gradle 8.7..."
+
+          gradle :app:assembleDebug \
+            --no-daemon \
+            --stacktrace
+
+          echo ""
+          echo "BUILD APK SELESAI"
+
+      - name: Cari APK hasil build
+        shell: bash
+        run: |
+          set -e
+
+          echo "Mencari APK hasil build..."
+
+          APK="$PROJECT/app/build/outputs/apk/debug/app-debug.apk"
+
+          if [ ! -f "$APK" ]; then
+
+            echo "APK standar tidak ditemukan."
+
+            echo "Mencari semua APK:"
+            find "$PROJECT/app/build/outputs" \
+              -type f \
+              -name "*.apk" \
+              -print 2>/dev/null || true
+
+            APK="$(find "$PROJECT/app/build/outputs" \
+              -type f \
+              -name "*.apk" \
+              -print -quit 2>/dev/null || true)"
+
+          fi
+
+          if [ -z "$APK" ] || [ ! -f "$APK" ]; then
+            echo "ERROR: APK tidak ditemukan."
+            exit 1
+          fi
+
+          echo "APK ditemukan:"
+          ls -lh "$APK"
+
+          cp "$APK" \
+            "$GITHUB_WORKSPACE/UsahoDen-v8.60-Opsi-Data-Backup-Folder.apk"
+
+          echo ""
+          echo "File APK siap di-upload:"
+          ls -lh \
+            "$GITHUB_WORKSPACE/UsahoDen-v8.60-Opsi-Data-Backup-Folder.apk"
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: UsahoDen-v8.60-Opsi-Data-Backup-Folder
+          path: UsahoDen-v8.60-Opsi-Data-Backup-Folder.apk
+          if-no-files-found: error
