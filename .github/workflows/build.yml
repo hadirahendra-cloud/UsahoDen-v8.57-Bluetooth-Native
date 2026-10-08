@@ -1,0 +1,118 @@
+name: Build UsahoDen v8.57 Bluetooth Native
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build APK UsahoDen v8.57
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
+        run: |
+          sdkmanager "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+      - name: Extract UsahoDen ZIP
+        shell: bash
+        run: |
+          set -e
+
+          ZIP=$(find . -maxdepth 2 -type f -iname "*.zip" | head -n 1)
+
+          if [ -z "$ZIP" ]; then
+            echo "ERROR: File ZIP UsahoDen tidak ditemukan."
+            exit 1
+          fi
+
+          echo "ZIP ditemukan: $ZIP"
+
+          rm -rf project
+          mkdir -p project
+
+          unzip -q "$ZIP" -d project
+
+          SETTINGS=$(find project -type f \( \
+            -name "settings.gradle" -o \
+            -name "settings.gradle.kts" \
+          \) | head -n 1)
+
+          if [ -z "$SETTINGS" ]; then
+            echo "ERROR: settings.gradle atau settings.gradle.kts tidak ditemukan."
+            find project -maxdepth 5 -type f | sort
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$SETTINGS")
+
+          echo "Project Android ditemukan di: $PROJECT_DIR"
+
+          rm -rf android-project
+          mkdir -p android-project
+
+          cp -a "$PROJECT_DIR"/. android-project/
+
+          echo "Struktur project:"
+          find android-project -maxdepth 3 -type f | sort
+
+      - name: Prepare Gradle
+        working-directory: android-project
+        shell: bash
+        run: |
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+          fi
+
+      - name: Build Debug APK
+        working-directory: android-project
+        shell: bash
+        run: |
+          set -e
+
+          if [ -f "./gradlew" ]; then
+            ./gradlew :app:assembleDebug --no-daemon --stacktrace
+          else
+            gradle :app:assembleDebug --no-daemon --stacktrace
+          fi
+
+      - name: Check APK
+        run: |
+          APK="android-project/app/build/outputs/apk/debug/app-debug.apk"
+
+          if [ ! -f "$APK" ]; then
+            echo "ERROR: APK tidak ditemukan."
+            find android-project -type f -name "*.apk" -print
+            exit 1
+          fi
+
+          echo "APK berhasil dibuat:"
+          ls -lh "$APK"
+
+      - name: Rename APK
+        run: |
+          cp android-project/app/build/outputs/apk/debug/app-debug.apk \
+            UsahoDen-v8.57-Bluetooth-Native-debug.apk
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: UsahoDen-v8.57-Bluetooth-Native
+          path: UsahoDen-v8.57-Bluetooth-Native-debug.apk
+          if-no-files-found: error
