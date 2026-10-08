@@ -1,4 +1,4 @@
-name: Build UsahoDen v8.60
+name: Build UsahoDen v8.60 FIX2
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build UsahoDen v8.60
+    name: Build UsahoDen v8.60 FIX2
     runs-on: ubuntu-latest
 
     steps:
@@ -37,7 +37,11 @@ jobs:
           SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
 
           if [ ! -f "$SDKMANAGER" ]; then
-            SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager -print -quit 2>/dev/null || true)"
+            SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" \
+              -type f \
+              -name sdkmanager \
+              -print \
+              -quit 2>/dev/null || true)"
           fi
 
           if [ -z "$SDKMANAGER" ]; then
@@ -57,25 +61,30 @@ jobs:
 
           echo "Android SDK siap."
 
-      - name: Cari ZIP yang BENAR
+      - name: Cari ZIP FIX2
         shell: bash
         run: |
           set -e
 
-          ZIP="./UsahoDen-v8.60-Bluetooth-Native-OPSI-DATA-BACKUP-FOLDER.zip"
+          ZIP="./UsahoDen-v8.60-Bluetooth-Native-OPSI-DATA-BACKUP-FOLDER-FIX2.zip"
 
-          echo "Mencari ZIP:"
+          echo "ZIP yang diwajibkan:"
           echo "$ZIP"
 
           if [ ! -f "$ZIP" ]; then
-            echo "ERROR: ZIP tidak ditemukan."
+            echo "ERROR: ZIP FIX2 tidak ditemukan."
+
             echo ""
             echo "ZIP yang tersedia:"
-            find . -maxdepth 1 -type f -name "*.zip" -printf "%f\n"
+            find . -maxdepth 1 \
+              -type f \
+              -name "*.zip" \
+              -printf "%f\n"
+
             exit 1
           fi
 
-          echo "ZIP ditemukan:"
+          echo "ZIP FIX2 ditemukan:"
           ls -lh "$ZIP"
 
           rm -rf build-project
@@ -91,13 +100,16 @@ jobs:
           SETTINGS="$(find build-project \
             -type f \
             \( -name "settings.gradle" -o -name "settings.gradle.kts" \) \
-            -print -quit)"
+            -print \
+            -quit)"
 
           if [ -z "$SETTINGS" ]; then
             echo "ERROR: Project Android tidak ditemukan."
 
-            echo "Isi ZIP:"
-            find build-project -maxdepth 7 -type f | head -250
+            find build-project \
+              -maxdepth 7 \
+              -type f \
+              | head -250
 
             exit 1
           fi
@@ -105,10 +117,9 @@ jobs:
           PROJECT="$(dirname "$SETTINGS")"
 
           echo "PROJECT=$PROJECT"
-
           echo "PROJECT=$PROJECT" >> "$GITHUB_ENV"
 
-      - name: Verifikasi Native Backup Folder
+      - name: Verifikasi Backup FIX2
         shell: bash
         run: |
           set -e
@@ -116,10 +127,10 @@ jobs:
           MAIN="$PROJECT/app/src/main/java/com/usahoden/app/MainActivity.java"
           HTML="$PROJECT/app/src/main/assets/index.html"
 
-          echo "Memeriksa MainActivity:"
+          echo "MainActivity:"
           echo "$MAIN"
 
-          echo "Memeriksa HTML:"
+          echo "HTML:"
           echo "$HTML"
 
           if [ ! -f "$MAIN" ]; then
@@ -132,24 +143,24 @@ jobs:
             exit 1
           fi
 
+          if ! grep -q "ACTION_CREATE_DOCUMENT" "$MAIN"; then
+            echo "ERROR: ACTION_CREATE_DOCUMENT tidak ditemukan."
+            exit 1
+          fi
+
           if ! grep -q "backupDataToFolder" "$MAIN"; then
             echo "ERROR: backupDataToFolder tidak ditemukan."
             exit 1
           fi
 
-          if ! grep -q "ACTION_OPEN_DOCUMENT_TREE" "$MAIN"; then
-            echo "ERROR: ACTION_OPEN_DOCUMENT_TREE tidak ditemukan."
-            exit 1
-          fi
-
           if ! grep -q "UsahoDenNative.backupDataToFolder" "$HTML"; then
-            echo "ERROR: HTML belum memanggil Native Backup Folder."
+            echo "ERROR: HTML tidak memanggil Native Backup."
             exit 1
           fi
 
           echo ""
           echo "======================================"
-          echo "NATIVE BACKUP FOLDER TERDETEKSI"
+          echo "BACKUP FIX2 TERDETEKSI"
           echo "======================================"
 
       - name: Cek versi aplikasi
@@ -175,52 +186,32 @@ jobs:
           set -e
 
           echo "======================================"
-          echo "MEMULAI BUILD APK"
+          echo "BUILD APK FIX2"
           echo "======================================"
 
           cd "$PROJECT"
-
-          echo "Project:"
-          pwd
-
-          echo ""
-          echo "Isi project:"
-          ls -lah
-
-          echo ""
-          echo "Menjalankan Gradle 8.7..."
 
           gradle :app:assembleDebug \
             --no-daemon \
             --stacktrace
 
-          echo ""
           echo "BUILD APK SELESAI"
 
-      - name: Cari APK hasil build
+      - name: Cari APK
         shell: bash
         run: |
           set -e
 
-          echo "Mencari APK hasil build..."
-
           APK="$PROJECT/app/build/outputs/apk/debug/app-debug.apk"
 
           if [ ! -f "$APK" ]; then
-
             echo "APK standar tidak ditemukan."
-
-            echo "Mencari semua APK:"
-            find "$PROJECT/app/build/outputs" \
-              -type f \
-              -name "*.apk" \
-              -print 2>/dev/null || true
 
             APK="$(find "$PROJECT/app/build/outputs" \
               -type f \
               -name "*.apk" \
-              -print -quit 2>/dev/null || true)"
-
+              -print \
+              -quit 2>/dev/null || true)"
           fi
 
           if [ -z "$APK" ] || [ ! -f "$APK" ]; then
@@ -232,16 +223,11 @@ jobs:
           ls -lh "$APK"
 
           cp "$APK" \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.60-Opsi-Data-Backup-Folder.apk"
-
-          echo ""
-          echo "File APK siap di-upload:"
-          ls -lh \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.60-Opsi-Data-Backup-Folder.apk"
+            "$GITHUB_WORKSPACE/UsahoDen-v8.60-BACKUP-FIX2.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.60-Opsi-Data-Backup-Folder
-          path: UsahoDen-v8.60-Opsi-Data-Backup-Folder.apk
+          name: UsahoDen-v8.60-BACKUP-FIX2
+          path: UsahoDen-v8.60-BACKUP-FIX2.apk
           if-no-files-found: error
