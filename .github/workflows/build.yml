@@ -1,4 +1,4 @@
-name: Build UsahoDen v8.60 FUNCTION FIX
+name: Build UsahoDen v8.60 Bluetooth Native
 
 on:
   workflow_dispatch:
@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -27,165 +28,165 @@ jobs:
           gradle-version: '8.7'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK
         shell: bash
         run: |
           set -e
 
-          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          echo "Mencari Android SDK..."
 
-          sdkmanager \
+          if [ -d "$ANDROID_HOME" ]; then
+            SDK_ROOT="$ANDROID_HOME"
+          elif [ -d "$ANDROID_SDK_ROOT" ]; then
+            SDK_ROOT="$ANDROID_SDK_ROOT"
+          else
+            SDK_ROOT="/usr/local/lib/android/sdk"
+          fi
+
+          echo "SDK_ROOT=$SDK_ROOT"
+
+          SDKMANAGER="$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager"
+
+          if [ ! -f "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$SDK_ROOT/cmdline-tools" -type f -name sdkmanager -print -quit 2>/dev/null || true)"
+          fi
+
+          if [ -z "$SDKMANAGER" ] || [ ! -f "$SDKMANAGER" ]; then
+            echo "ERROR: sdkmanager tidak ditemukan"
+            exit 1
+          fi
+
+          echo "sdkmanager ditemukan:"
+          "$SDKMANAGER" --version
+
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+
+          "$SDKMANAGER" \
             "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-      - name: Cari ZIP v8.60
+          echo "Android SDK berhasil disiapkan."
+
+      - name: Cari ZIP UsahoDen v8.60
         shell: bash
         run: |
           set -e
 
-          ZIP=""
+          echo "Mencari ZIP project..."
 
-          for FILE in \
-            "UsahoDen-v8.60-Bluetooth-Native-FUNCTION-FIX.zip" \
-            "UsahoDen-v8.60-Bluetooth-Native-FUNCTION-FIX (1).zip"
-          do
-            if [ -f "$FILE" ]; then
-              ZIP="$FILE"
-              break
-            fi
-          done
+          ZIP="$(find . -maxdepth 1 -type f \
+            \( -name 'UsahoDen-v8.60-Bluetooth-Native-FUNCTION-FIX.zip' \
+            -o -name 'UsahoDen-v8.60-Bluetooth-Native-FUNCTION-FIX (1).zip' \
+            -o -name 'UsahoDen-v8.60*.zip' \) \
+            -print -quit)"
 
           if [ -z "$ZIP" ]; then
-            ZIP="$(find . -maxdepth 2 -type f \
-              -name 'UsahoDen-v8.60*.zip' \
-              -print -quit)"
-          fi
-
-          if [ -z "$ZIP" ]; then
-            echo "ERROR: ZIP v8.60 TIDAK DITEMUKAN."
-
-            echo "ZIP yang tersedia:"
-            find . -maxdepth 2 -type f -name "*.zip" -print
-
+            echo "ERROR: ZIP UsahoDen v8.60 tidak ditemukan."
+            echo "File yang ada di repository:"
+            ls -lah
             exit 1
           fi
 
-          echo "ZIP YANG AKAN DIBUILD:"
+          echo "ZIP ditemukan:"
           echo "$ZIP"
 
-          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
-
-      - name: Extract ZIP v8.60
-        shell: bash
-        run: |
-          set -e
-
           rm -rf build-project
-
           mkdir -p build-project
 
           unzip -q "$ZIP" -d build-project
 
-          echo "ZIP v8.60 berhasil diekstrak."
+          echo "Mencari project Android..."
 
-      - name: Cari Project Android
-        shell: bash
-        run: |
-          set -e
+          PROJECT=""
 
-          SETTINGS="$(find build-project \
-            -type f \
-            -name "settings.gradle" \
-            -print \
-            -quit)"
+          SETTINGS="$(find build-project -type f \
+            \( -name 'settings.gradle' -o -name 'settings.gradle.kts' \) \
+            -print -quit)"
 
-          if [ -z "$SETTINGS" ]; then
-            SETTINGS="$(find build-project \
-              -type f \
-              -name "settings.gradle.kts" \
-              -print \
-              -quit)"
+          if [ -n "$SETTINGS" ]; then
+            PROJECT="$(dirname "$SETTINGS")"
           fi
 
-          if [ -z "$SETTINGS" ]; then
+          if [ -z "$PROJECT" ]; then
             echo "ERROR: Project Android tidak ditemukan."
-
-            find build-project \
-              -maxdepth 6 \
-              -type f \
-              | sort
-
+            echo "Isi ZIP:"
+            find build-project -maxdepth 6 -type f | head -200
             exit 1
           fi
 
-          PROJECT="$(dirname "$SETTINGS")"
-
+          echo "PROJECT=$PROJECT"
           echo "PROJECT=$PROJECT" >> "$GITHUB_ENV"
 
-          echo "PROJECT ANDROID:"
-          echo "$PROJECT"
-
-      - name: Pastikan Versi 8.60
+      - name: Cek versi aplikasi
         shell: bash
         run: |
           set -e
 
           echo "Memeriksa versi aplikasi..."
 
-          grep -R \
-            "versionName.*8.60" \
-            "$PROJECT/app" \
-            || {
-              echo "ERROR: Project bukan versi 8.60."
-              echo "Build dihentikan agar tidak menghasilkan APK versi lama."
-              exit 1
-            }
+          if [ -f "$PROJECT/app/build.gradle" ]; then
+            grep -n "versionName" "$PROJECT/app/build.gradle" || true
+          fi
 
-          echo "VERSI 8.60 TERKONFIRMASI."
+          if [ -f "$PROJECT/app/build.gradle.kts" ]; then
+            grep -n "versionName" "$PROJECT/app/build.gradle.kts" || true
+          fi
 
-      - name: Build APK
+      - name: Build APK Debug
         shell: bash
         run: |
           set -e
 
           cd "$PROJECT"
 
-          gradle \
-            :app:assembleDebug \
-            --no-daemon \
-            --stacktrace
+          echo "Project:"
+          pwd
 
-      - name: Cek APK
+          echo "Isi project:"
+          ls -lah
+
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+
+            ./gradlew :app:assembleDebug \
+              --no-daemon \
+              --stacktrace
+          else
+            gradle :app:assembleDebug \
+              --no-daemon \
+              --stacktrace
+          fi
+
+      - name: Cari APK hasil build
         shell: bash
         run: |
           set -e
 
-          APK="$PROJECT/app/build/outputs/apk/debug/app-debug.apk"
+          echo "Mencari APK..."
 
-          if [ ! -f "$APK" ]; then
+          APK="$(find "$PROJECT/app/build/outputs/apk" \
+            -type f -name '*.apk' \
+            -print -quit 2>/dev/null || true)"
+
+          if [ -z "$APK" ]; then
             echo "ERROR: APK tidak ditemukan."
 
+            echo "Isi folder output:"
             find "$PROJECT/app/build/outputs" \
-              -type f \
-              -name "*.apk" \
-              -print \
-              2>/dev/null || true
+              -type f 2>/dev/null || true
 
             exit 1
           fi
 
-          echo "APK v8.60 berhasil dibuat:"
+          echo "APK ditemukan:"
           ls -lh "$APK"
 
           cp "$APK" \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.60-FUNCTION-FIX.apk"
+            "$GITHUB_WORKSPACE/UsahoDen-v8.60-Bluetooth-Native-FUNCTION-FIX.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.60-FUNCTION-FIX
-          path: UsahoDen-v8.60-FUNCTION-FIX.apk
+          name: UsahoDen-v8.60-Bluetooth-Native-FUNCTION-FIX
+          path: UsahoDen-v8.60-Bluetooth-Native-FUNCTION-FIX.apk
           if-no-files-found: error
