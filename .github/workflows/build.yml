@@ -21,47 +21,79 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Setup Gradle
+      - name: Setup Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
 
-      - name: Cari project Android
+      - name: Setup Android SDK
         shell: bash
         run: |
           set -e
 
-          ZIP=$(find . -maxdepth 1 -type f -name "*.zip" | head -n 1)
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+
+          SDKMANAGER="$(command -v sdkmanager || true)"
+
+          if [ -z "$SDKMANAGER" ] && [ -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          fi
+
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit 2>/dev/null || true)"
+          fi
+
+          if [ -z "$SDKMANAGER" ]; then
+            echo "sdkmanager tidak ditemukan"
+            exit 1
+          fi
+
+          echo "SDKMANAGER=$SDKMANAGER"
+
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+
+          "$SDKMANAGER" "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
+
+          echo "Android SDK siap"
+
+      - name: Cari project Android dari ZIP
+        shell: bash
+        run: |
+          set -e
+
+          ZIP="$(find . -maxdepth 1 -type f -name '*.zip' -print -quit)"
 
           if [ -z "$ZIP" ]; then
             echo "ZIP project tidak ditemukan"
+            ls -lah
             exit 1
           fi
 
           echo "ZIP ditemukan: $ZIP"
 
           rm -rf build-project
-          mkdir build-project
+          mkdir -p build-project
 
           unzip -q "$ZIP" -d build-project
 
-          PROJECT=$(find build-project -type f -name "settings.gradle" -print -quit | xargs -r dirname)
+          PROJECT="$(find build-project -type f -name 'settings.gradle' -print -quit | xargs -r dirname)"
 
           if [ -z "$PROJECT" ]; then
-            PROJECT=$(find build-project -type f -name "settings.gradle.kts" -print -quit | xargs -r dirname)
+            PROJECT="$(find build-project -type f -name 'settings.gradle.kts' -print -quit | xargs -r dirname)"
           fi
 
           if [ -z "$PROJECT" ]; then
             echo "Project Android tidak ditemukan"
-            find build-project -maxdepth 4 -type f | head -100
+            echo "Isi ZIP:"
+            find build-project -maxdepth 5 -type f | head -200
             exit 1
           fi
 
           echo "PROJECT=$PROJECT" >> "$GITHUB_ENV"
-          echo "Project Android: $PROJECT"
+          echo "Project Android ditemukan: $PROJECT"
 
       - name: Build Debug APK
         shell: bash
@@ -70,11 +102,12 @@ jobs:
 
           cd "$PROJECT"
 
-          chmod +x gradlew
-
-          ./gradlew :app:assembleDebug \
-            --no-daemon \
-            --stacktrace
+          if [ -f "./gradlew" ]; then
+            chmod +x ./gradlew
+            ./gradlew :app:assembleDebug --no-daemon --stacktrace
+          else
+            gradle :app:assembleDebug --no-daemon --stacktrace
+          fi
 
       - name: Cek APK
         shell: bash
@@ -85,11 +118,13 @@ jobs:
 
           if [ ! -f "$APK" ]; then
             echo "APK tidak ditemukan"
+            find "$PROJECT/app/build/outputs" -type f 2>/dev/null || true
             exit 1
           fi
 
           cp "$APK" "$GITHUB_WORKSPACE/UsahoDen-v8.57-Bluetooth-Native-debug.apk"
 
+          echo "APK berhasil dibuat:"
           ls -lh "$GITHUB_WORKSPACE/UsahoDen-v8.57-Bluetooth-Native-debug.apk"
 
       - name: Upload APK
