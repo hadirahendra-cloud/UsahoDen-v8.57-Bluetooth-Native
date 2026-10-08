@@ -1,4 +1,4 @@
-name: Build UsahoDen v8.60 Icon Splash
+name: Build UsahoDen v8.60 Splash 3 Detik
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build UsahoDen v8.60 Icon Splash
+    name: Build UsahoDen v8.60 Splash 3 Detik
     runs-on: ubuntu-latest
 
     steps:
@@ -42,7 +42,11 @@ jobs:
           fi
 
           if [ ! -f "$SDKMANAGER" ]; then
-            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit 2>/dev/null || true)"
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" \
+              -type f \
+              -name sdkmanager \
+              -print \
+              -quit 2>/dev/null || true)"
           fi
 
           if [ -z "$SDKMANAGER" ]; then
@@ -60,24 +64,24 @@ jobs:
 
           echo "Android SDK siap."
 
-      - name: Cari ZIP Icon Splash
+      - name: Cari ZIP Splash 3 Detik
         shell: bash
         run: |
           set -e
 
-          ZIP="./UsahoDen-v8.60-Icon-Splash-UsahoDen.zip"
+          ZIP="./UsahoDen-v8.60-Icon-Splash-UsahoDen-3Detik.zip"
 
           if [ ! -f "$ZIP" ]; then
             echo "ZIP utama tidak ditemukan."
 
             ZIP="$(find . -maxdepth 1 -type f \
-              -name 'UsahoDen-v8.60-Icon-Splash-UsahoDen*.zip' \
+              -name 'UsahoDen-v8.60-Icon-Splash-UsahoDen-3Detik*.zip' \
               -print -quit)"
-
           fi
 
           if [ -z "$ZIP" ] || [ ! -f "$ZIP" ]; then
-            echo "ERROR: ZIP Icon Splash tidak ditemukan."
+            echo "ERROR: ZIP Splash 3 Detik tidak ditemukan."
+            echo ""
             echo "ZIP yang tersedia:"
             find . -maxdepth 1 -type f -name "*.zip" -print
             exit 1
@@ -116,7 +120,7 @@ jobs:
         run: |
           set -e
 
-          echo "Project:"
+          echo "Project Android:"
           echo "$PROJECT"
 
           if [ ! -d "$PROJECT/app" ]; then
@@ -126,18 +130,18 @@ jobs:
 
           echo "Folder app OK."
 
-      - name: Cek Icon dan Splash
+      - name: Verifikasi Splash
         shell: bash
         run: |
           set -e
 
-          echo "Memeriksa asset..."
+          echo "Memeriksa file aplikasi..."
 
           find "$PROJECT/app/src/main" \
             -type f \
             | head -150
 
-          echo "Asset diperiksa."
+          echo "Project Splash 3 Detik siap dibuild."
 
       - name: Cek Versi
         shell: bash
@@ -162,7 +166,8 @@ jobs:
           cd "$PROJECT"
 
           echo "================================"
-          echo "BUILD APK USahoDen"
+          echo "BUILD USahoDen v8.60"
+          echo "SPLASH 3 DETIK"
           echo "================================"
 
           gradle :app:assembleDebug \
@@ -182,7 +187,8 @@ jobs:
             APK="$(find "$PROJECT/app/build/outputs" \
               -type f \
               -name "*.apk" \
-              -print -quit 2>/dev/null || true)"
+              -print \
+              -quit 2>/dev/null || true)"
           fi
 
           if [ -z "$APK" ] || [ ! -f "$APK" ]; then
@@ -194,11 +200,11 @@ jobs:
           ls -lh "$APK"
 
           cp "$APK" \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.60-Icon-Splash-UsahoDen.apk"
+            "$GITHUB_WORKSPACE/UsahoDen-v8.60-Splash-3-Detik.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.60-Icon-Splash-UsahoDen
-          path: UsahoDen-v8.60-Icon-Splash-UsahoDen.apk
+          name: UsahoDen-v8.60-Splash-3-Detik
+          path: UsahoDen-v8.60-Splash-3-Detik.apk
           if-no-files-found: error
