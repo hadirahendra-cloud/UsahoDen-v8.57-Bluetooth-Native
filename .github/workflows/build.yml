@@ -28,18 +28,35 @@ jobs:
           gradle-version: '8.7'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK
         shell: bash
         run: |
           set -e
 
-          yes | sdkmanager --licenses >/dev/null 2>&1 || true
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
 
-          sdkmanager "platform-tools"
-          sdkmanager "platforms;android-35"
-          sdkmanager "build-tools;35.0.0"
+          SDKMANAGER="$(command -v sdkmanager || true)"
+
+          if [ -z "$SDKMANAGER" ]; then
+            SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          fi
+
+          if [ ! -f "$SDKMANAGER" ]; then
+            SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager -print -quit 2>/dev/null || true)"
+          fi
+
+          if [ -z "$SDKMANAGER" ]; then
+            echo "ERROR: sdkmanager tidak ditemukan"
+            exit 1
+          fi
+
+          echo "SDKMANAGER=$SDKMANAGER"
+
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+
+          "$SDKMANAGER" "platform-tools"
+          "$SDKMANAGER" "platforms;android-35"
+          "$SDKMANAGER" "build-tools;35.0.0"
 
           echo "Android SDK siap."
 
@@ -50,19 +67,23 @@ jobs:
 
           ZIP="./UsahoDen-v8.60-Icon-Splash-UsahoDen.zip"
 
-          echo "Mencari:"
-          echo "$ZIP"
-
           if [ ! -f "$ZIP" ]; then
-            echo "ERROR: ZIP tidak ditemukan."
+            echo "ZIP utama tidak ditemukan."
 
+            ZIP="$(find . -maxdepth 1 -type f \
+              -name 'UsahoDen-v8.60-Icon-Splash-UsahoDen*.zip' \
+              -print -quit)"
+
+          fi
+
+          if [ -z "$ZIP" ] || [ ! -f "$ZIP" ]; then
+            echo "ERROR: ZIP Icon Splash tidak ditemukan."
             echo "ZIP yang tersedia:"
             find . -maxdepth 1 -type f -name "*.zip" -print
-
             exit 1
           fi
 
-          echo "ZIP ditemukan:"
+          echo "ZIP yang digunakan:"
           ls -lh "$ZIP"
 
           rm -rf build-project
@@ -70,56 +91,65 @@ jobs:
 
           unzip -q "$ZIP" -d build-project
 
-      - name: Verifikasi Project Android
+      - name: Cari Project Android
         shell: bash
         run: |
           set -e
 
-          SETTINGS=$(find build-project -type f \
-            \( -name "settings.gradle" -o -name "settings.gradle.kts" \) \
-            -print -quit)
+          SETTINGS="$(find build-project -type f \
+            \( -name 'settings.gradle' -o -name 'settings.gradle.kts' \) \
+            -print -quit)"
 
           if [ -z "$SETTINGS" ]; then
             echo "ERROR: Project Android tidak ditemukan."
-
             find build-project -maxdepth 7 -type f | head -250
-
             exit 1
           fi
 
-          PROJECT=$(dirname "$SETTINGS")
+          PROJECT="$(dirname "$SETTINGS")"
 
-          echo "Project Android:"
-          echo "$PROJECT"
-
+          echo "PROJECT=$PROJECT"
           echo "PROJECT=$PROJECT" >> "$GITHUB_ENV"
 
-      - name: Verifikasi Icon Splash
+      - name: Verifikasi Project
         shell: bash
         run: |
           set -e
 
-          echo "Project berhasil ditemukan."
+          echo "Project:"
+          echo "$PROJECT"
 
-          echo "Memeriksa AndroidManifest:"
+          if [ ! -d "$PROJECT/app" ]; then
+            echo "ERROR: Folder app tidak ditemukan."
+            exit 1
+          fi
+
+          echo "Folder app OK."
+
+      - name: Cek Icon dan Splash
+        shell: bash
+        run: |
+          set -e
+
+          echo "Memeriksa asset..."
+
           find "$PROJECT/app/src/main" \
             -type f \
-            \( -name "AndroidManifest.xml" -o -name "*.png" -o -name "*.xml" \) \
-            | head -100
+            | head -150
 
-      - name: Cek versi aplikasi
+          echo "Asset diperiksa."
+
+      - name: Cek Versi
         shell: bash
         run: |
           set -e
 
           if [ -f "$PROJECT/app/build.gradle" ]; then
-            echo "build.gradle:"
             grep -n "versionCode" "$PROJECT/app/build.gradle" || true
             grep -n "versionName" "$PROJECT/app/build.gradle" || true
           fi
 
           if [ -f "$PROJECT/app/build.gradle.kts" ]; then
-            echo "build.gradle.kts:"
             grep -n "versionCode" "$PROJECT/app/build.gradle.kts" || true
             grep -n "versionName" "$PROJECT/app/build.gradle.kts" || true
           fi
@@ -131,15 +161,15 @@ jobs:
 
           cd "$PROJECT"
 
-          echo "======================================"
+          echo "================================"
           echo "BUILD APK USahoDen"
-          echo "======================================"
+          echo "================================"
 
           gradle :app:assembleDebug \
             --no-daemon \
             --stacktrace
 
-          echo "BUILD APK BERHASIL"
+          echo "BUILD APK BERHASIL."
 
       - name: Cari APK
         shell: bash
@@ -149,12 +179,10 @@ jobs:
           APK="$PROJECT/app/build/outputs/apk/debug/app-debug.apk"
 
           if [ ! -f "$APK" ]; then
-            echo "APK standar tidak ditemukan."
-
-            APK=$(find "$PROJECT/app/build/outputs" \
+            APK="$(find "$PROJECT/app/build/outputs" \
               -type f \
               -name "*.apk" \
-              -print -quit)
+              -print -quit 2>/dev/null || true)"
           fi
 
           if [ -z "$APK" ] || [ ! -f "$APK" ]; then
