@@ -1,4 +1,4 @@
-name: Build UsahoDen v8.59 SYSTEM BAR FIX
+name: Build UsahoDen v8.60 FUNCTION FIX
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build APK UsahoDen v8.59
+    name: Build APK UsahoDen v8.60
     runs-on: ubuntu-latest
 
     steps:
@@ -27,65 +27,71 @@ jobs:
           gradle-version: '8.7'
 
       - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK
         shell: bash
         run: |
           set -e
 
-          SDKMANAGER=""
+          yes | sdkmanager --licenses >/dev/null 2>&1 || true
 
-          if [ -n "${ANDROID_HOME:-}" ]; then
-            if [ -x "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
-              SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-            fi
-          fi
-
-          if [ -z "$SDKMANAGER" ]; then
-            SDKMANAGER="$(find /usr/local/lib/android/sdk/cmdline-tools \
-              -type f \
-              -name sdkmanager \
-              -print \
-              2>/dev/null | sort -V | tail -n 1)"
-          fi
-
-          if [ -z "$SDKMANAGER" ]; then
-            echo "ERROR: sdkmanager tidak ditemukan."
-            exit 1
-          fi
-
-          echo "SDKMANAGER=$SDKMANAGER"
-
-          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
-
-          "$SDKMANAGER" \
+          sdkmanager \
             "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-          echo "Android SDK siap."
-
-      - name: Ambil ZIP v8.59
+      - name: Cari ZIP v8.60
         shell: bash
         run: |
           set -e
 
-          ZIP="UsahoDen-v8.59-Bluetooth-Native-SYSTEM-BAR-FIX.zip"
+          ZIP=""
 
-          if [ ! -f "$ZIP" ]; then
-            echo "ERROR: $ZIP tidak ditemukan."
-            echo "Daftar file ZIP:"
+          for FILE in \
+            "UsahoDen-v8.60-Bluetooth-Native-FUNCTION-FIX.zip" \
+            "UsahoDen-v8.60-Bluetooth-Native-FUNCTION-FIX (1).zip"
+          do
+            if [ -f "$FILE" ]; then
+              ZIP="$FILE"
+              break
+            fi
+          done
+
+          if [ -z "$ZIP" ]; then
+            ZIP="$(find . -maxdepth 2 -type f \
+              -name 'UsahoDen-v8.60*.zip' \
+              -print -quit)"
+          fi
+
+          if [ -z "$ZIP" ]; then
+            echo "ERROR: ZIP v8.60 TIDAK DITEMUKAN."
+
+            echo "ZIP yang tersedia:"
             find . -maxdepth 2 -type f -name "*.zip" -print
+
             exit 1
           fi
 
-          echo "ZIP yang digunakan:"
+          echo "ZIP YANG AKAN DIBUILD:"
           echo "$ZIP"
 
+          echo "ZIP=$ZIP" >> "$GITHUB_ENV"
+
+      - name: Extract ZIP v8.60
+        shell: bash
+        run: |
+          set -e
+
           rm -rf build-project
+
           mkdir -p build-project
 
           unzip -q "$ZIP" -d build-project
 
-      - name: Cari project Android
+          echo "ZIP v8.60 berhasil diekstrak."
+
+      - name: Cari Project Android
         shell: bash
         run: |
           set -e
@@ -106,7 +112,12 @@ jobs:
 
           if [ -z "$SETTINGS" ]; then
             echo "ERROR: Project Android tidak ditemukan."
-            find build-project -maxdepth 6 -type f | sort
+
+            find build-project \
+              -maxdepth 6 \
+              -type f \
+              | sort
+
             exit 1
           fi
 
@@ -114,17 +125,36 @@ jobs:
 
           echo "PROJECT=$PROJECT" >> "$GITHUB_ENV"
 
-          echo "Project Android:"
+          echo "PROJECT ANDROID:"
           echo "$PROJECT"
 
-      - name: Build APK Debug
+      - name: Pastikan Versi 8.60
+        shell: bash
+        run: |
+          set -e
+
+          echo "Memeriksa versi aplikasi..."
+
+          grep -R \
+            "versionName.*8.60" \
+            "$PROJECT/app" \
+            || {
+              echo "ERROR: Project bukan versi 8.60."
+              echo "Build dihentikan agar tidak menghasilkan APK versi lama."
+              exit 1
+            }
+
+          echo "VERSI 8.60 TERKONFIRMASI."
+
+      - name: Build APK
         shell: bash
         run: |
           set -e
 
           cd "$PROJECT"
 
-          gradle :app:assembleDebug \
+          gradle \
+            :app:assembleDebug \
             --no-daemon \
             --stacktrace
 
@@ -147,15 +177,15 @@ jobs:
             exit 1
           fi
 
-          echo "APK berhasil dibuat:"
+          echo "APK v8.60 berhasil dibuat:"
           ls -lh "$APK"
 
           cp "$APK" \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.59-SYSTEM-BAR-FIX-debug.apk"
+            "$GITHUB_WORKSPACE/UsahoDen-v8.60-FUNCTION-FIX.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.59-SYSTEM-BAR-FIX
-          path: UsahoDen-v8.59-SYSTEM-BAR-FIX-debug.apk
+          name: UsahoDen-v8.60-FUNCTION-FIX
+          path: UsahoDen-v8.60-FUNCTION-FIX.apk
           if-no-files-found: error
