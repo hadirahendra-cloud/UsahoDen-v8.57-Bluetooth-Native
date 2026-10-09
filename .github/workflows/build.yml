@@ -1,4 +1,4 @@
-name: Build UsahoDen v8.64 Tampilan Elegan
+name: Build UsahoDen v8.65 Riwayat Transaksi Customer
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build APK UsahoDen v8.64
+    name: Build APK UsahoDen v8.65
     runs-on: ubuntu-latest
 
     steps:
@@ -55,15 +55,15 @@ jobs:
 
           echo "Android SDK siap."
 
-      - name: Cari ZIP v8.64
+      - name: Cari ZIP v8.65
         shell: bash
         run: |
           set -e
 
-          ZIP="./UsahoDen-v8.64-Tampilan-Elegan-Semua-Halaman.zip"
+          ZIP="./UsahoDen-v8.65-Riwayat-Transaksi-Customer.zip"
 
           if [ ! -f "$ZIP" ]; then
-            echo "ERROR: ZIP v8.64 tidak ditemukan."
+            echo "ERROR: ZIP v8.65 tidak ditemukan."
             echo "Pastikan ZIP berada di halaman utama repository."
             find . -maxdepth 1 -type f -name "*.zip" -print
             exit 1
@@ -146,14 +146,14 @@ jobs:
           fi
 
           cp "$APK" \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.64-Tampilan-Elegan-Semua-Halaman.apk"
+            "$GITHUB_WORKSPACE/UsahoDen-v8.65-Riwayat-Transaksi-Customer.apk"
 
-          ls -lh "$GITHUB_WORKSPACE/UsahoDen-v8.64-Tampilan-Elegan-Semua-Halaman.apk"
+          ls -lh "$GITHUB_WORKSPACE/UsahoDen-v8.65-Riwayat-Transaksi-Customer.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.64-Tampilan-Elegan-Semua-Halaman
-          path: UsahoDen-v8.64-Tampilan-Elegan-Semua-Halaman.apk
+          name: UsahoDen-v8.65-Riwayat-Transaksi-Customer
+          path: UsahoDen-v8.65-Riwayat-Transaksi-Customer.apk
           if-no-files-found: error
           retention-days: 7
