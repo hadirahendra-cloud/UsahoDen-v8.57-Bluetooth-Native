@@ -1,4 +1,4 @@
-name: Build UsahoDen v8.66 Share Print Tutup Riwayat
+name: Build UsahoDen v8.68 Nota Digital Gambar FIX
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build APK UsahoDen v8.66
+    name: Build APK UsahoDen v8.68
     runs-on: ubuntu-latest
 
     steps:
@@ -55,16 +55,17 @@ jobs:
 
           echo "Android SDK siap."
 
-      - name: Cari ZIP v8.66
+      - name: Cari ZIP v8.68
         shell: bash
         run: |
           set -e
 
-          ZIP="./UsahoDen-v8.66-Share-Print-Tutup-Riwayat.zip"
+          ZIP="./UsahoDen-v8.68-Nota-Digital-Gambar-FIX.zip"
 
           if [ ! -f "$ZIP" ]; then
-            echo "ERROR: ZIP v8.66 tidak ditemukan."
+            echo "ERROR: ZIP v8.68 tidak ditemukan."
             echo "Pastikan ZIP berada di halaman utama repository."
+            echo "Daftar ZIP yang tersedia:"
             find . -maxdepth 1 -type f -name "*.zip" -print
             exit 1
           fi
@@ -119,6 +120,7 @@ jobs:
         shell: bash
         run: |
           set -e
+
           cd "$PROJECT"
 
           gradle :app:assembleDebug \
@@ -146,14 +148,15 @@ jobs:
           fi
 
           cp "$APK" \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.66-Share-Print-Tutup-Riwayat.apk"
+            "$GITHUB_WORKSPACE/UsahoDen-v8.68-Nota-Digital-Gambar-FIX.apk"
 
-          ls -lh "$GITHUB_WORKSPACE/UsahoDen-v8.66-Share-Print-Tutup-Riwayat.apk"
+          ls -lh \
+            "$GITHUB_WORKSPACE/UsahoDen-v8.68-Nota-Digital-Gambar-FIX.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.66-Share-Print-Tutup-Riwayat
-          path: UsahoDen-v8.66-Share-Print-Tutup-Riwayat.apk
+          name: UsahoDen-v8.68-Nota-Digital-Gambar-FIX
+          path: UsahoDen-v8.68-Nota-Digital-Gambar-FIX.apk
           if-no-files-found: error
           retention-days: 7
