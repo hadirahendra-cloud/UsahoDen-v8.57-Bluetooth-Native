@@ -1,4 +1,4 @@
-name: Build UsahoDen v8.61 Ganti Gambar Produk FIX
+name: Build UsahoDen v8.62 Edit Produk Lengkap
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build APK UsahoDen v8.61
+    name: Build APK UsahoDen v8.62
     runs-on: ubuntu-latest
 
     steps:
@@ -31,9 +31,6 @@ jobs:
         run: |
           set -e
 
-          echo "ANDROID_HOME=$ANDROID_HOME"
-          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
-
           SDKMANAGER="$(command -v sdkmanager || true)"
 
           if [ -z "$SDKMANAGER" ]; then
@@ -42,10 +39,8 @@ jobs:
 
           if [ ! -f "$SDKMANAGER" ]; then
             SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" \
-              -type f \
-              -name sdkmanager \
-              -print \
-              -quit 2>/dev/null || true)"
+              -type f -name sdkmanager \
+              -print -quit 2>/dev/null || true)"
           fi
 
           if [ -z "$SDKMANAGER" ] || [ ! -f "$SDKMANAGER" ]; then
@@ -53,27 +48,23 @@ jobs:
             exit 1
           fi
 
-          echo "SDKMANAGER=$SDKMANAGER"
-
           yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
-
           "$SDKMANAGER" "platform-tools"
           "$SDKMANAGER" "platforms;android-35"
           "$SDKMANAGER" "build-tools;35.0.0"
 
           echo "Android SDK siap."
 
-      - name: Cari ZIP Ganti Gambar Produk FIX
+      - name: Cari ZIP v8.62
         shell: bash
         run: |
           set -e
 
-          ZIP="./UsahoDen-v8.61-Ganti-Gambar-Produk-FIX.zip"
+          ZIP="./UsahoDen-v8.62-Edit-Produk-Lengkap.zip"
 
           if [ ! -f "$ZIP" ]; then
-            echo "ERROR: ZIP v8.61 FIX tidak ditemukan."
-            echo "Pastikan ZIP berada di halaman utama repository."
-            echo "Daftar ZIP yang tersedia:"
+            echo "ERROR: ZIP v8.62 tidak ditemukan."
+            echo "ZIP yang tersedia:"
             find . -maxdepth 1 -type f -name "*.zip" -print
             exit 1
           fi
@@ -104,73 +95,39 @@ jobs:
           fi
 
           PROJECT="$(dirname "$SETTINGS")"
-
           echo "Project Android: $PROJECT"
           echo "PROJECT=$PROJECT" >> "$GITHUB_ENV"
 
-      - name: Verifikasi Project Android
+      - name: Verifikasi Project
         shell: bash
         run: |
           set -e
 
-          echo "Memeriksa folder project..."
-
           if [ ! -d "$PROJECT/app" ]; then
             echo "ERROR: Folder app tidak ditemukan."
-            find "$PROJECT" -maxdepth 3 -type d
             exit 1
           fi
-
-          echo "Folder app ditemukan."
 
           if [ ! -f "$PROJECT/app/src/main/AndroidManifest.xml" ]; then
             echo "ERROR: AndroidManifest.xml tidak ditemukan."
             exit 1
           fi
 
-          echo "AndroidManifest.xml ditemukan."
-
-      - name: Periksa File Aplikasi
-        shell: bash
-        run: |
-          set -e
-
-          echo "Daftar file aplikasi:"
-          find "$PROJECT/app/src/main" -type f | head -200
-
-          echo "Memeriksa konfigurasi Gradle..."
-
-          if [ -f "$PROJECT/app/build.gradle" ]; then
-            grep -n "applicationId" "$PROJECT/app/build.gradle" || true
-            grep -n "versionCode" "$PROJECT/app/build.gradle" || true
-            grep -n "versionName" "$PROJECT/app/build.gradle" || true
-          fi
-
-          if [ -f "$PROJECT/app/build.gradle.kts" ]; then
-            grep -n "applicationId" "$PROJECT/app/build.gradle.kts" || true
-            grep -n "versionCode" "$PROJECT/app/build.gradle.kts" || true
-            grep -n "versionName" "$PROJECT/app/build.gradle.kts" || true
-          fi
+          echo "Project Android siap."
 
       - name: Build APK Debug
         shell: bash
         run: |
           set -e
-
           cd "$PROJECT"
-
-          echo "======================================"
-          echo "BUILD USAHODEN v8.61"
-          echo "GANTI GAMBAR PRODUK FIX"
-          echo "======================================"
 
           gradle :app:assembleDebug \
             --no-daemon \
             --stacktrace
 
-          echo "BUILD APK BERHASIL."
+          echo "Build APK berhasil."
 
-      - name: Cari dan Siapkan APK
+      - name: Siapkan APK
         shell: bash
         run: |
           set -e
@@ -179,31 +136,24 @@ jobs:
 
           if [ ! -f "$APK" ]; then
             APK="$(find "$PROJECT/app/build/outputs" \
-              -type f \
-              -name "*.apk" \
-              -print \
-              -quit 2>/dev/null || true)"
+              -type f -name "*.apk" \
+              -print -quit 2>/dev/null || true)"
           fi
 
           if [ -z "$APK" ] || [ ! -f "$APK" ]; then
             echo "ERROR: APK tidak ditemukan."
-            find "$PROJECT/app/build/outputs" \
-              -maxdepth 6 -type f 2>/dev/null || true
             exit 1
           fi
 
-          echo "APK ditemukan:"
-          ls -lh "$APK"
-
           cp "$APK" \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.61-Ganti-Gambar-Produk-FIX.apk"
+            "$GITHUB_WORKSPACE/UsahoDen-v8.62-Edit-Produk-Lengkap.apk"
 
-          echo "APK siap diunggah."
+          ls -lh "$GITHUB_WORKSPACE/UsahoDen-v8.62-Edit-Produk-Lengkap.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.61-Ganti-Gambar-Produk-FIX
-          path: UsahoDen-v8.61-Ganti-Gambar-Produk-FIX.apk
+          name: UsahoDen-v8.62-Edit-Produk-Lengkap
+          path: UsahoDen-v8.62-Edit-Produk-Lengkap.apk
           if-no-files-found: error
           retention-days: 7
