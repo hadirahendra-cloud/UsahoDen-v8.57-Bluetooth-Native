@@ -1,4 +1,4 @@
-name: Build UsahoDen v8.69 Nota Digital Desain Asli
+name: Build UsahoDen v8.70 Nota Digital Desain Persis
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build APK UsahoDen v8.69
+    name: Build APK UsahoDen v8.70
     runs-on: ubuntu-latest
 
     steps:
@@ -53,17 +53,24 @@ jobs:
           "$SDKMANAGER" "platforms;android-35"
           "$SDKMANAGER" "build-tools;35.0.0"
 
-      - name: Cari ZIP v8.69
+          echo "Android SDK siap."
+
+      - name: Cari ZIP v8.70
         shell: bash
         run: |
           set -e
-          ZIP="./UsahoDen-v8.69-Nota-Digital-Desain-Asli-FIX.zip"
+
+          ZIP="./UsahoDen-v8.70-Nota-Digital-Desain-Persis-Caption-FIX.zip"
 
           if [ ! -f "$ZIP" ]; then
-            echo "ERROR: ZIP v8.69 tidak ditemukan."
+            echo "ERROR: ZIP v8.70 tidak ditemukan."
+            echo "Pastikan ZIP berada di halaman utama repository."
             find . -maxdepth 1 -type f -name "*.zip" -print
             exit 1
           fi
+
+          echo "ZIP yang digunakan:"
+          ls -lh "$ZIP"
 
           rm -rf build-project
           mkdir -p build-project
@@ -93,8 +100,17 @@ jobs:
         shell: bash
         run: |
           set -e
-          test -d "$PROJECT/app"
-          test -f "$PROJECT/app/src/main/AndroidManifest.xml"
+
+          if [ ! -d "$PROJECT/app" ]; then
+            echo "ERROR: Folder app tidak ditemukan."
+            exit 1
+          fi
+
+          if [ ! -f "$PROJECT/app/src/main/AndroidManifest.xml" ]; then
+            echo "ERROR: AndroidManifest.xml tidak ditemukan."
+            exit 1
+          fi
+
           echo "Project Android siap."
 
       - name: Build APK Debug
@@ -102,17 +118,24 @@ jobs:
         run: |
           set -e
           cd "$PROJECT"
-          gradle :app:assembleDebug --no-daemon --stacktrace
+
+          gradle :app:assembleDebug \
+            --no-daemon \
+            --stacktrace
+
+          echo "Build APK berhasil."
 
       - name: Siapkan APK
         shell: bash
         run: |
           set -e
+
           APK="$PROJECT/app/build/outputs/apk/debug/app-debug.apk"
 
           if [ ! -f "$APK" ]; then
             APK="$(find "$PROJECT/app/build/outputs" \
-              -type f -name "*.apk" -print -quit)"
+              -type f -name "*.apk" \
+              -print -quit 2>/dev/null || true)"
           fi
 
           if [ -z "$APK" ] || [ ! -f "$APK" ]; then
@@ -121,12 +144,15 @@ jobs:
           fi
 
           cp "$APK" \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.69-Nota-Digital-Desain-Asli-FIX.apk"
+            "$GITHUB_WORKSPACE/UsahoDen-v8.70-Nota-Digital-Desain-Persis-Caption-FIX.apk"
+
+          ls -lh \
+            "$GITHUB_WORKSPACE/UsahoDen-v8.70-Nota-Digital-Desain-Persis-Caption-FIX.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.69-Nota-Digital-Desain-Asli-FIX
-          path: UsahoDen-v8.69-Nota-Digital-Desain-Asli-FIX.apk
+          name: UsahoDen-v8.70-Nota-Digital-Desain-Persis-Caption-FIX
+          path: UsahoDen-v8.70-Nota-Digital-Desain-Persis-Caption-FIX.apk
           if-no-files-found: error
           retention-days: 7
