@@ -1,4 +1,4 @@
-name: Build UsahoDen v8.60 Splash 3 Detik
+name: Build UsahoDen v8.61 Ganti Gambar Produk FIX
 
 on:
   workflow_dispatch:
@@ -8,11 +8,10 @@ on:
 
 jobs:
   build:
-    name: Build UsahoDen v8.60 Splash 3 Detik
+    name: Build APK UsahoDen v8.61
     runs-on: ubuntu-latest
 
     steps:
-
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -49,8 +48,8 @@ jobs:
               -quit 2>/dev/null || true)"
           fi
 
-          if [ -z "$SDKMANAGER" ]; then
-            echo "ERROR: sdkmanager tidak ditemukan"
+          if [ -z "$SDKMANAGER" ] || [ ! -f "$SDKMANAGER" ]; then
+            echo "ERROR: sdkmanager tidak ditemukan."
             exit 1
           fi
 
@@ -64,25 +63,17 @@ jobs:
 
           echo "Android SDK siap."
 
-      - name: Cari ZIP Splash 3 Detik
+      - name: Cari ZIP Ganti Gambar Produk FIX
         shell: bash
         run: |
           set -e
 
-          ZIP="./UsahoDen-v8.60-Icon-Splash-UsahoDen-3Detik.zip"
+          ZIP="./UsahoDen-v8.61-Ganti-Gambar-Produk-FIX.zip"
 
           if [ ! -f "$ZIP" ]; then
-            echo "ZIP utama tidak ditemukan."
-
-            ZIP="$(find . -maxdepth 1 -type f \
-              -name 'UsahoDen-v8.60-Icon-Splash-UsahoDen-3Detik*.zip' \
-              -print -quit)"
-          fi
-
-          if [ -z "$ZIP" ] || [ ! -f "$ZIP" ]; then
-            echo "ERROR: ZIP Splash 3 Detik tidak ditemukan."
-            echo ""
-            echo "ZIP yang tersedia:"
+            echo "ERROR: ZIP v8.61 FIX tidak ditemukan."
+            echo "Pastikan ZIP berada di halaman utama repository."
+            echo "Daftar ZIP yang tersedia:"
             find . -maxdepth 1 -type f -name "*.zip" -print
             exit 1
           fi
@@ -92,8 +83,9 @@ jobs:
 
           rm -rf build-project
           mkdir -p build-project
-
           unzip -q "$ZIP" -d build-project
+
+          echo "ZIP berhasil diekstrak."
 
       - name: Cari Project Android
         shell: bash
@@ -101,7 +93,8 @@ jobs:
           set -e
 
           SETTINGS="$(find build-project -type f \
-            \( -name 'settings.gradle' -o -name 'settings.gradle.kts' \) \
+            \( -name 'settings.gradle' \
+            -o -name 'settings.gradle.kts' \) \
             -print -quit)"
 
           if [ -z "$SETTINGS" ]; then
@@ -112,48 +105,49 @@ jobs:
 
           PROJECT="$(dirname "$SETTINGS")"
 
-          echo "PROJECT=$PROJECT"
+          echo "Project Android: $PROJECT"
           echo "PROJECT=$PROJECT" >> "$GITHUB_ENV"
 
-      - name: Verifikasi Project
+      - name: Verifikasi Project Android
         shell: bash
         run: |
           set -e
 
-          echo "Project Android:"
-          echo "$PROJECT"
+          echo "Memeriksa folder project..."
 
           if [ ! -d "$PROJECT/app" ]; then
             echo "ERROR: Folder app tidak ditemukan."
+            find "$PROJECT" -maxdepth 3 -type d
             exit 1
           fi
 
-          echo "Folder app OK."
+          echo "Folder app ditemukan."
 
-      - name: Verifikasi Splash
+          if [ ! -f "$PROJECT/app/src/main/AndroidManifest.xml" ]; then
+            echo "ERROR: AndroidManifest.xml tidak ditemukan."
+            exit 1
+          fi
+
+          echo "AndroidManifest.xml ditemukan."
+
+      - name: Periksa File Aplikasi
         shell: bash
         run: |
           set -e
 
-          echo "Memeriksa file aplikasi..."
+          echo "Daftar file aplikasi:"
+          find "$PROJECT/app/src/main" -type f | head -200
 
-          find "$PROJECT/app/src/main" \
-            -type f \
-            | head -150
-
-          echo "Project Splash 3 Detik siap dibuild."
-
-      - name: Cek Versi
-        shell: bash
-        run: |
-          set -e
+          echo "Memeriksa konfigurasi Gradle..."
 
           if [ -f "$PROJECT/app/build.gradle" ]; then
+            grep -n "applicationId" "$PROJECT/app/build.gradle" || true
             grep -n "versionCode" "$PROJECT/app/build.gradle" || true
             grep -n "versionName" "$PROJECT/app/build.gradle" || true
           fi
 
           if [ -f "$PROJECT/app/build.gradle.kts" ]; then
+            grep -n "applicationId" "$PROJECT/app/build.gradle.kts" || true
             grep -n "versionCode" "$PROJECT/app/build.gradle.kts" || true
             grep -n "versionName" "$PROJECT/app/build.gradle.kts" || true
           fi
@@ -165,10 +159,10 @@ jobs:
 
           cd "$PROJECT"
 
-          echo "================================"
-          echo "BUILD USahoDen v8.60"
-          echo "SPLASH 3 DETIK"
-          echo "================================"
+          echo "======================================"
+          echo "BUILD USAHODEN v8.61"
+          echo "GANTI GAMBAR PRODUK FIX"
+          echo "======================================"
 
           gradle :app:assembleDebug \
             --no-daemon \
@@ -176,7 +170,7 @@ jobs:
 
           echo "BUILD APK BERHASIL."
 
-      - name: Cari APK
+      - name: Cari dan Siapkan APK
         shell: bash
         run: |
           set -e
@@ -193,6 +187,8 @@ jobs:
 
           if [ -z "$APK" ] || [ ! -f "$APK" ]; then
             echo "ERROR: APK tidak ditemukan."
+            find "$PROJECT/app/build/outputs" \
+              -maxdepth 6 -type f 2>/dev/null || true
             exit 1
           fi
 
@@ -200,11 +196,14 @@ jobs:
           ls -lh "$APK"
 
           cp "$APK" \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.60-Splash-3-Detik.apk"
+            "$GITHUB_WORKSPACE/UsahoDen-v8.61-Ganti-Gambar-Produk-FIX.apk"
+
+          echo "APK siap diunggah."
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.60-Splash-3-Detik
-          path: UsahoDen-v8.60-Splash-3-Detik.apk
+          name: UsahoDen-v8.61-Ganti-Gambar-Produk-FIX
+          path: UsahoDen-v8.61-Ganti-Gambar-Produk-FIX.apk
           if-no-files-found: error
+          retention-days: 7
