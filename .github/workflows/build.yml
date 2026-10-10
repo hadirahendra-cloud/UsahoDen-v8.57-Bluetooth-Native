@@ -1,4 +1,4 @@
-name: Build UsahoDen v9.04 - About Fix
+name: Build UsahoDen v9.04 - About Button Fix
 
 on:
   workflow_dispatch:
@@ -11,14 +11,13 @@ permissions:
 
 jobs:
   build:
-    name: Build APK v9.04
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -29,75 +28,35 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Prepare Android SDK
+      - name: Setup Android SDK
+        run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Extract Source
         run: |
           set -e
-          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
-          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
-          test -d "$SDK/platforms/android-35"
-          test -d "$SDK/build-tools/35.0.0"
-
-      - name: Prepare Source
-        run: |
-          set -e
-          ZIP="UsahoDen-v9.01-RangMudo-Jr-Full-Customer-Names.zip"
-          if [ -f "$ZIP" ]; then
-            mkdir -p extracted-source
-            unzip -oq "$ZIP" -d extracted-source
-            PROJECT_DIR=$(find extracted-source -type f \
-              -path '*/app/build.gradle' -print -quit |
-              sed 's#/app/build.gradle##')
-            test -n "$PROJECT_DIR"
-            cp -a "$PROJECT_DIR"/. .
-          fi
-
-          test -f app/build.gradle
+          ZIP="UsahoDen-v9.04-About-Button-Fix.zip"
+          test -f "$ZIP"
+          mkdir -p extracted
+          unzip -oq "$ZIP" -d extracted
+          PROJECT_DIR=$(find extracted -type f -path '*/app/build.gradle' -print -quit | sed 's#/app/build.gradle##')
+          test -n "$PROJECT_DIR"
+          cp -a "$PROJECT_DIR"/. .
           test -f app/src/main/assets/index.html
-
-          grep -q 'function about()' app/src/main/assets/index.html
-          grep -q 'about,tandaTangan' app/src/main/assets/index.html
-
-          sed -i "s/versionCode 901/versionCode 904/; s/versionName '9.01'/versionName '9.04'/" app/build.gradle
-
-          grep -q "versionCode 904" app/build.gradle
-          grep -q "versionName '9.04'" app/build.gradle
+          test -f app/build.gradle
 
       - name: Build APK
         run: |
           set -e
           gradle :app:clean :app:assembleDebug --no-daemon
           test -s app/build/outputs/apk/debug/app-debug.apk
-          cp app/build/outputs/apk/debug/app-debug.apk \
-            UsahoDen-v9.04-About-Fix.apk
-
-      - name: Sign APK
-        env:
-          KEYSTORE: ${{ secrets.TOKOKU_KEYSTORE_BASE64 }}
-          STORE_PASS: ${{ secrets.TOKOKU_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.TOKOKU_KEY_ALIAS }}
-          KEY_PASS: ${{ secrets.TOKOKU_KEY_PASSWORD }}
-        run: |
-          set -e
-          test -n "$KEYSTORE"
-          test -n "$STORE_PASS"
-          test -n "$KEY_ALIAS"
-          test -n "$KEY_PASS"
-          printf '%s' "$KEYSTORE" | base64 --decode > "$RUNNER_TEMP/key.jks"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
-            --ks "$RUNNER_TEMP/key.jks" \
-            --ks-key-alias "$KEY_ALIAS" \
-            --ks-pass env:STORE_PASS \
-            --key-pass env:KEY_PASS \
-            --out UsahoDen-v9.04-About-Fix-SIGNED.apk \
-            UsahoDen-v9.04-About-Fix.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
-            UsahoDen-v9.04-About-Fix-SIGNED.apk
+          cp app/build/outputs/apk/debug/app-debug.apk UsahoDen-v9.04-About-Button-Fix.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v9.04-About-Fix-SIGNED
-          path: UsahoDen-v9.04-About-Fix-SIGNED.apk
+          name: UsahoDen-v9.04-About-Button-Fix
+          path: UsahoDen-v9.04-About-Button-Fix.apk
           if-no-files-found: error
           retention-days: 30
