@@ -1,4 +1,4 @@
-name: Build UsahoDen v8.86
+name: Build UsahoDen v8.87 - Fix Pengaturan Scroll
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Build APK v8.86
+    name: Build APK UsahoDen v8.87
     runs-on: ubuntu-latest
 
     steps:
@@ -29,7 +29,8 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Locate Android SDK
+      - name: Locate Preinstalled Android SDK
+        shell: bash
         run: |
           set -e
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
@@ -40,36 +41,53 @@ jobs:
           echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
 
-      - name: Prepare Exact v8.86 Source
+      - name: Prepare Exact v8.87 Source
+        shell: bash
         run: |
           set -e
-          ZIP="UsahoDen-v8.86-FIX-Logo-Beranda-Setting-FULL-SOURCE.zip"
+          ZIP="UsahoDen-v8.87-Fix-Scroll-Pengaturan-FULL-SOURCE.zip"
 
           if [ ! -f app/build.gradle ]; then
             test -f "$ZIP" || {
-              echo "Upload ZIP v8.86 ke root repository."
+              echo "ZIP v8.87 belum diunggah ke root repository."
               exit 1
             }
 
             mkdir -p extracted-source
             unzip -oq "$ZIP" -d extracted-source
 
-            DIR="extracted-source/UsahoDen-v8.86-FIX-Logo-Beranda-Setting"
-            test -f "$DIR/app/build.gradle"
-            cp -a "$DIR"/. .
+            PROJECT_DIR=$(find extracted-source -type f \
+              -path '*/app/build.gradle' \
+              -print -quit | sed 's#/app/build.gradle##')
+
+            test -n "$PROJECT_DIR" || {
+              echo "Proyek Android tidak ditemukan di ZIP."
+              exit 1
+            }
+
+            cp -a "$PROJECT_DIR"/. .
           fi
 
           test -f app/src/main/assets/index.html
-          grep -q 'Selamat datang kembali!' app/src/main/assets/index.html
-          grep -q 'goSettingsDirect' app/src/main/assets/index.html
+          grep -q 'v887-settings-scroll-fix' \
+            app/src/main/assets/index.html
 
-      - name: Check Android SDK
+      - name: Check Android SDK Packages
+        shell: bash
         run: |
           set -e
-          test -d "$ANDROID_HOME/platforms/android-35"
-          test -d "$ANDROID_HOME/build-tools/35.0.0"
+          test -d "$ANDROID_HOME/platforms/android-35" || {
+            echo "Android SDK Platform 35 tidak tersedia."
+            exit 1
+          }
+
+          test -d "$ANDROID_HOME/build-tools/35.0.0" || {
+            echo "Android Build Tools 35.0.0 tidak tersedia."
+            exit 1
+          }
 
       - name: Build APK
+        shell: bash
         run: |
           set -e
           gradle :app:clean :app:assembleDebug \
@@ -77,17 +95,18 @@ jobs:
 
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-          cp "$APK" UsahoDen-v8.86.apk
+
+          cp "$APK" UsahoDen-v8.87-Fix-Scroll-Pengaturan.apk
 
       - name: Verify APK
         run: |
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
-            verify app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
+            app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.86
-          path: UsahoDen-v8.86.apk
+          name: UsahoDen-v8.87-Fix-Scroll-Pengaturan
+          path: UsahoDen-v8.87-Fix-Scroll-Pengaturan.apk
           if-no-files-found: error
           retention-days: 30
