@@ -1,4 +1,4 @@
-name: "Build UsahoDen v8.77 - Perbaikan Etalase Nama Harga"
+name: "Build UsahoDen v8.78 - Perbaikan Restore Backup JSON"
 
 'on':
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Build APK UsahoDen v8.77
+    name: Build APK UsahoDen v8.78
     runs-on: ubuntu-latest
 
     env:
@@ -28,7 +28,7 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle 8.7
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
@@ -37,14 +37,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test -d "$ANDROID_HOME/platforms/android-35" || {
-            echo "ERROR: Android SDK platform 35 tidak tersedia."
-            exit 1
-          }
-          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner" || {
-            echo "ERROR: Android Build Tools 35.0.0 tidak tersedia."
-            exit 1
-          }
+          test -d "$ANDROID_HOME/platforms/android-35"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          echo "Android SDK siap."
 
       - name: Find and extract UsahoDen ZIP
         shell: bash
@@ -52,12 +47,11 @@ jobs:
           set -euo pipefail
 
           ZIP=$(find . -maxdepth 5 -type f \
-            -iname 'UsahoDen-v8.77-Perbaikan-Etalase-Nama-Harga.zip' \
+            -iname 'UsahoDen-v8.78-Perbaikan-Restore-Backup-JSON.zip' \
             -print -quit)
 
           if [ -z "$ZIP" ]; then
-            echo "ERROR: ZIP v8.77 tidak ditemukan di repository."
-            echo "Unggah ZIP v8.77 ke repository terlebih dahulu."
+            echo "ERROR: ZIP v8.78 tidak ditemukan di repository."
             exit 1
           fi
 
@@ -76,19 +70,6 @@ jobs:
           echo "PROJECT=$PROJECT" >> "$GITHUB_ENV"
           echo "Source ditemukan: $PROJECT"
 
-      - name: Verify Android project
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [ ! -f "$PROJECT/app/build.gradle" ] && \
-             [ ! -f "$PROJECT/app/build.gradle.kts" ]; then
-            echo "ERROR: Konfigurasi Gradle aplikasi tidak ditemukan."
-            exit 1
-          fi
-
-          echo "Struktur proyek Android ditemukan."
-
       - name: Build Debug APK
         shell: bash
         run: |
@@ -104,31 +85,23 @@ jobs:
           fi
 
           APK="$PROJECT/app/build/outputs/apk/debug/app-debug.apk"
-
-          if [ ! -s "$APK" ]; then
-            echo "ERROR: APK tidak ditemukan setelah build."
-            exit 1
-          fi
+          test -s "$APK"
 
           cp "$APK" \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.77-Perbaikan-Etalase-Nama-Harga.apk"
+            "$GITHUB_WORKSPACE/UsahoDen-v8.78-Perbaikan-Restore-Backup-JSON.apk"
 
       - name: Verify APK
         shell: bash
         run: |
           set -euo pipefail
-
-          APK="$GITHUB_WORKSPACE/UsahoDen-v8.77-Perbaikan-Etalase-Nama-Harga.apk"
-
+          APK="$GITHUB_WORKSPACE/UsahoDen-v8.78-Perbaikan-Restore-Backup-JSON.apk"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK"
-
-          echo "Verifikasi APK selesai."
+          echo "Verifikasi APK berhasil."
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.77-Perbaikan-Etalase-Nama-Harga
-          path: UsahoDen-v8.77-Perbaikan-Etalase-Nama-Harga.apk
+          name: UsahoDen-v8.78-Perbaikan-Restore-Backup-JSON
+          path: UsahoDen-v8.78-Perbaikan-Restore-Backup-JSON.apk
           if-no-files-found: error
           retention-days: 30
