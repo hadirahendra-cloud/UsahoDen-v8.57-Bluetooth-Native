@@ -1,4 +1,4 @@
-name: Build UsahoDen v8.92 - Beranda Scroll Fix
+name: Build UsahoDen v8.93 - Home Scroll Hero Fix
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Build APK UsahoDen v8.92
+    name: Build APK UsahoDen v8.93
     runs-on: ubuntu-latest
 
     steps:
@@ -29,11 +29,11 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Prepare v8.92 Source
+      - name: Prepare v8.93 Source
         shell: bash
         run: |
           set -e
-          ZIP="UsahoDen-v8.92-Fix-Beranda-Tidak-Tertutup-FULL-SOURCE.zip"
+          ZIP="UsahoDen-v8.93-Fix-Beranda-Scroll-Hero-FULL-SOURCE.zip"
 
           if [ -f "$ZIP" ]; then
             rm -rf extracted-source
@@ -51,14 +51,14 @@ jobs:
 
             cp -a "$PROJECT_DIR"/. .
           elif [ ! -f app/build.gradle ]; then
-            echo "ZIP v8.92 tidak ditemukan di root repository."
+            echo "ZIP v8.93 tidak ditemukan di root repository."
             exit 1
           fi
 
           test -f app/src/main/assets/index.html
-          grep -q 'v892-home-scroll-safe-area' app/src/main/assets/index.html
+          grep -q 'v893-home-scroll-hero-fix' app/src/main/assets/index.html
           grep -q 'classList.toggle("home-scroll-mode", page === "home")' app/src/main/assets/index.html
-          grep -q "versionName '8.92'" app/build.gradle
+          grep -q "versionName '8.93'" app/build.gradle
 
       - name: Locate Android SDK
         shell: bash
@@ -78,7 +78,6 @@ jobs:
         shell: bash
         run: |
           set -e
-
           test -d "$ANDROID_HOME/platforms/android-35" || {
             echo "Android SDK Platform 35 tidak tersedia."
             exit 1
@@ -93,13 +92,11 @@ jobs:
         shell: bash
         run: |
           set -e
-
           gradle :app:clean :app:assembleDebug --no-daemon --stacktrace
 
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-
-          cp "$APK" UsahoDen-v8.92-Beranda-Scroll-Fix.apk
+          cp "$APK" UsahoDen-v8.93-Beranda-Scroll-Hero-Fix.apk
 
       - name: Verify APK
         run: |
@@ -109,7 +106,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.92-Beranda-Scroll-Fix
-          path: UsahoDen-v8.92-Beranda-Scroll-Fix.apk
+          name: UsahoDen-v8.93-Beranda-Scroll-Hero-Fix
+          path: UsahoDen-v8.93-Beranda-Scroll-Hero-Fix.apk
           if-no-files-found: error
           retention-days: 30
