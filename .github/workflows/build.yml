@@ -1,20 +1,21 @@
-name: Build UsahoDen v9.03 - RangMudo Jr Signed
+name: Build UsahoDen v9.04 - About Fix
 
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches:
+      - main
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: Build APK v9.03
+    name: Build APK v9.04
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Java 17
@@ -23,96 +24,80 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Gradle 8.7
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
 
       - name: Prepare Android SDK
-        shell: bash
         run: |
-          set -euo pipefail
+          set -e
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
-          test -d "$SDK" || {
-            echo "Android SDK tidak ditemukan: $SDK"
-            exit 1
-          }
           echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
-          SDKMANAGER=$(find "$SDK/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -n 1 || true)
-          if [ ! -d "$SDK/platforms/android-35" ] || [ ! -d "$SDK/build-tools/35.0.0" ]; then
-            test -n "$SDKMANAGER" || {
-              echo "SDK Manager tidak ditemukan."
-              exit 1
-            }
-            yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses || true
-            "$SDKMANAGER" --sdk_root="$SDK" \
-              "platform-tools" \
-              "platforms;android-35" \
-              "build-tools;35.0.0"
-          fi
-          test -x "$SDK/build-tools/35.0.0/apksigner"
-          echo "Android SDK siap."
+          test -d "$SDK/platforms/android-35"
+          test -d "$SDK/build-tools/35.0.0"
 
       - name: Prepare Source
-        shell: bash
         run: |
-          set -euo pipefail
+          set -e
           ZIP="UsahoDen-v9.01-RangMudo-Jr-Full-Customer-Names.zip"
-          test -f "$ZIP" || {
-            echo "ZIP source tidak ditemukan: $ZIP"
-            exit 1
-          }
-          mkdir -p extracted-source
-          unzip -oq "$ZIP" -d extracted-source
-          PROJECT_DIR=$(find extracted-source -type f \
-            -path '*/app/build.gradle' -print -quit |
-            sed 's#/app/build.gradle##')
-          test -n "$PROJECT_DIR"
-          cp -a "$PROJECT_DIR"/. .
+          if [ -f "$ZIP" ]; then
+            mkdir -p extracted-source
+            unzip -oq "$ZIP" -d extracted-source
+            PROJECT_DIR=$(find extracted-source -type f \
+              -path '*/app/build.gradle' -print -quit |
+              sed 's#/app/build.gradle##')
+            test -n "$PROJECT_DIR"
+            cp -a "$PROJECT_DIR"/. .
+          fi
+
+          test -f app/build.gradle
           test -f app/src/main/assets/index.html
-          grep -q 'v9.01-rangmudo-full-customer-names' \
-            app/src/main/assets/index.html
-          grep -q "applicationId 'com.usahoden.app'" app/build.gradle
-          sed -i "s/versionCode 901/versionCode 903/; s/versionName '9.01'/versionName '9.03'/" app/build.gradle
-          grep -q "versionCode 903" app/build.gradle
-          grep -q "versionName '9.03'" app/build.gradle
+
+          grep -q 'function about()' app/src/main/assets/index.html
+          grep -q 'about,tandaTangan' app/src/main/assets/index.html
+
+          sed -i "s/versionCode 901/versionCode 904/; s/versionName '9.01'/versionName '9.04'/" app/build.gradle
+
+          grep -q "versionCode 904" app/build.gradle
+          grep -q "versionName '9.04'" app/build.gradle
 
       - name: Build APK
-        shell: bash
         run: |
-          set -euo pipefail
-          gradle :app:clean :app:assembleDebug --no-daemon --stacktrace
-          APK="app/build/outputs/apk/debug/app-debug.apk"
-          test -s "$APK"
+          set -e
+          gradle :app:clean :app:assembleDebug --no-daemon
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk \
+            UsahoDen-v9.04-About-Fix.apk
 
       - name: Sign APK
-        shell: bash
         env:
-          TOKOKU_KEYSTORE_BASE64: ${{ secrets.TOKOKU_KEYSTORE_BASE64 }}
-          TOKOKU_KEYSTORE_PASSWORD: ${{ secrets.TOKOKU_KEYSTORE_PASSWORD }}
-          TOKOKU_KEY_ALIAS: ${{ secrets.TOKOKU_KEY_ALIAS }}
-          TOKOKU_KEY_PASSWORD: ${{ secrets.TOKOKU_KEY_PASSWORD }}
+          KEYSTORE: ${{ secrets.TOKOKU_KEYSTORE_BASE64 }}
+          STORE_PASS: ${{ secrets.TOKOKU_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.TOKOKU_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.TOKOKU_KEY_PASSWORD }}
         run: |
-          set -euo pipefail
-          test -n "$TOKOKU_KEYSTORE_BASE64"
-          test -n "$TOKOKU_KEYSTORE_PASSWORD"
-          test -n "$TOKOKU_KEY_ALIAS"
-          test -n "$TOKOKU_KEY_PASSWORD"
-          printf '%s' "$TOKOKU_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/rangmudo-release.jks"
+          set -e
+          test -n "$KEYSTORE"
+          test -n "$STORE_PASS"
+          test -n "$KEY_ALIAS"
+          test -n "$KEY_PASS"
+          printf '%s' "$KEYSTORE" | base64 --decode > "$RUNNER_TEMP/key.jks"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
-            --ks "$RUNNER_TEMP/rangmudo-release.jks" \
-            --ks-key-alias "$TOKOKU_KEY_ALIAS" \
-            --ks-pass env:TOKOKU_KEYSTORE_PASSWORD \
-            --key-pass env:TOKOKU_KEY_PASSWORD \
-            --out UsahoDen-v9.03-RangMudo-Jr.apk \
-            app/build/outputs/apk/debug/app-debug.apk
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs UsahoDen-v9.03-RangMudo-Jr.apk
+            --ks "$RUNNER_TEMP/key.jks" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:STORE_PASS \
+            --key-pass env:KEY_PASS \
+            --out UsahoDen-v9.04-About-Fix-SIGNED.apk \
+            UsahoDen-v9.04-About-Fix.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
+            UsahoDen-v9.04-About-Fix-SIGNED.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v9.03-RangMudo-Jr-SIGNED
-          path: UsahoDen-v9.03-RangMudo-Jr.apk
+          name: UsahoDen-v9.04-About-Fix-SIGNED
+          path: UsahoDen-v9.04-About-Fix-SIGNED.apk
           if-no-files-found: error
           retention-days: 30
