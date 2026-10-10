@@ -1,4 +1,4 @@
-name: Build UsahoDen v8.87 - Fix Pengaturan Scroll
+name: Build UsahoDen v8.88 - Fix Printer Scroll and App Icon
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Build APK UsahoDen v8.87
+    name: Build APK UsahoDen v8.88
     runs-on: ubuntu-latest
 
     steps:
@@ -29,30 +29,15 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Locate Preinstalled Android SDK
+      - name: Prepare Exact v8.88 Source
         shell: bash
         run: |
           set -e
-          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
-          test -d "$SDK" || {
-            echo "Android SDK tidak ditemukan."
-            exit 1
-          }
-          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
 
-      - name: Prepare Exact v8.87 Source
-        shell: bash
-        run: |
-          set -e
-          ZIP="UsahoDen-v8.87-Fix-Scroll-Pengaturan-FULL-SOURCE.zip"
+          ZIP="UsahoDen-v8.88-Fix-Printer-Scroll-Icon-FULL-SOURCE.zip"
 
-          if [ ! -f app/build.gradle ]; then
-            test -f "$ZIP" || {
-              echo "ZIP v8.87 belum diunggah ke root repository."
-              exit 1
-            }
-
+          if [ -f "$ZIP" ]; then
+            rm -rf extracted-source
             mkdir -p extracted-source
             unzip -oq "$ZIP" -d extracted-source
 
@@ -61,21 +46,40 @@ jobs:
               -print -quit | sed 's#/app/build.gradle##')
 
             test -n "$PROJECT_DIR" || {
-              echo "Proyek Android tidak ditemukan di ZIP."
+              echo "Proyek Android tidak ditemukan dalam ZIP."
               exit 1
             }
 
             cp -a "$PROJECT_DIR"/. .
+          elif [ ! -f app/build.gradle ]; then
+            echo "ZIP v8.88 tidak ditemukan di root repository."
+            exit 1
           fi
 
           test -f app/src/main/assets/index.html
-          grep -q 'v887-settings-scroll-fix' \
+          grep -q 'v888-printer-scroll-icon-fix' \
             app/src/main/assets/index.html
+          grep -q "versionName '8.88'" app/build.gradle
+
+      - name: Locate Android SDK
+        shell: bash
+        run: |
+          set -e
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+
+          test -d "$SDK" || {
+            echo "Android SDK tidak ditemukan."
+            exit 1
+          }
+
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
 
       - name: Check Android SDK Packages
         shell: bash
         run: |
           set -e
+
           test -d "$ANDROID_HOME/platforms/android-35" || {
             echo "Android SDK Platform 35 tidak tersedia."
             exit 1
@@ -90,13 +94,14 @@ jobs:
         shell: bash
         run: |
           set -e
+
           gradle :app:clean :app:assembleDebug \
             --no-daemon --stacktrace
 
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
 
-          cp "$APK" UsahoDen-v8.87-Fix-Scroll-Pengaturan.apk
+          cp "$APK" UsahoDen-v8.88-Fix-Printer-Scroll-Icon.apk
 
       - name: Verify APK
         run: |
@@ -106,7 +111,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.87-Fix-Scroll-Pengaturan
-          path: UsahoDen-v8.87-Fix-Scroll-Pengaturan.apk
+          name: UsahoDen-v8.88-Fix-Printer-Scroll-Icon
+          path: UsahoDen-v8.88-Fix-Printer-Scroll-Icon.apk
           if-no-files-found: error
           retention-days: 30
