@@ -1,5 +1,5 @@
 
-name: "Build UsahoDen v8.81 - Etalase Nama Harga Rapi"
+name: "Build UsahoDen v8.82 - UI Modern Eksperimen"
 
 'on':
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Build APK UsahoDen v8.81
+    name: Build APK UsahoDen v8.82
     runs-on: ubuntu-latest
 
     env:
@@ -38,12 +38,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           test -d "$ANDROID_HOME/platforms/android-35" || {
             echo "ERROR: Android SDK platform 35 tidak tersedia."
             exit 1
           }
-
           test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner" || {
             echo "ERROR: Android Build Tools 35.0.0 tidak tersedia."
             exit 1
@@ -55,11 +53,11 @@ jobs:
           set -euo pipefail
 
           ZIP=$(find . -maxdepth 5 -type f \
-            -iname 'UsahoDen-v8.81-Etalase-Nama-Harga-Rapi.zip' \
+            -iname 'UsahoDen-v8.82-UI-Modern-Eksperimen.zip' \
             -print -quit)
 
           if [ -z "$ZIP" ]; then
-            echo "ERROR: ZIP source v8.81 tidak ditemukan."
+            echo "ERROR: ZIP v8.82 tidak ditemukan di repository."
             exit 1
           fi
 
@@ -71,21 +69,19 @@ jobs:
             -print -quit | xargs -r dirname)
 
           if [ -z "$PROJECT" ]; then
-            echo "ERROR: settings.gradle tidak ditemukan dalam ZIP."
+            echo "ERROR: settings.gradle tidak ditemukan."
             exit 1
           fi
 
           echo "PROJECT=$PROJECT" >> "$GITHUB_ENV"
-          echo "Source ditemukan: $PROJECT"
 
       - name: Verify Android project
         shell: bash
         run: |
           set -euo pipefail
-
           if [ ! -f "$PROJECT/app/build.gradle" ] && \
              [ ! -f "$PROJECT/app/build.gradle.kts" ]; then
-            echo "ERROR: File konfigurasi aplikasi tidak ditemukan."
+            echo "ERROR: Konfigurasi Gradle aplikasi tidak ditemukan."
             exit 1
           fi
 
@@ -96,14 +92,11 @@ jobs:
 
           if [ -f "$PROJECT/gradlew" ]; then
             chmod +x "$PROJECT/gradlew"
-
-            "$PROJECT/gradlew" \
-              -p "$PROJECT" \
+            "$PROJECT/gradlew" -p "$PROJECT" \
               :app:clean :app:assembleDebug \
               --no-daemon --stacktrace
           else
-            gradle \
-              -p "$PROJECT" \
+            gradle -p "$PROJECT" \
               :app:clean :app:assembleDebug \
               --no-daemon --stacktrace
           fi
@@ -111,28 +104,24 @@ jobs:
           APK="$PROJECT/app/build/outputs/apk/debug/app-debug.apk"
 
           if [ ! -s "$APK" ]; then
-            echo "ERROR: APK tidak ditemukan setelah build."
+            echo "ERROR: APK tidak ditemukan."
             exit 1
           fi
 
           cp "$APK" \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.81-Etalase-Nama-Harga-Rapi.apk"
+            "$GITHUB_WORKSPACE/UsahoDen-v8.82-UI-Modern-Eksperimen.apk"
 
       - name: Verify APK
         shell: bash
         run: |
           set -euo pipefail
-
-          APK="$GITHUB_WORKSPACE/UsahoDen-v8.81-Etalase-Nama-Harga-Rapi.apk"
-
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
-
-          echo "Verifikasi APK berhasil."
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
+            "$GITHUB_WORKSPACE/UsahoDen-v8.82-UI-Modern-Eksperimen.apk"
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.81-Etalase-Nama-Harga-Rapi
-          path: UsahoDen-v8.81-Etalase-Nama-Harga-Rapi.apk
+          name: UsahoDen-v8.82-UI-Modern-Eksperimen
+          path: UsahoDen-v8.82-UI-Modern-Eksperimen.apk
           if-no-files-found: error
           retention-days: 30
