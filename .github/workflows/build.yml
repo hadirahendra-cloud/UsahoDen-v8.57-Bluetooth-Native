@@ -1,132 +1,155 @@
-name: Build UsahoDen v8.73 - Pengeluaran Harian Bulanan
+name: Build UsahoDen v8.74 - Tombol Kembali Semua Halaman
 
 on:
-  workflow_dispatch:
-  push:
-    branches:
-      - main
+workflow_dispatch:
+push:
+branches:
+- main
 
 permissions:
-  contents: read
+contents: read
 
 jobs:
-  build:
-    name: Build APK UsahoDen v8.73
-    runs-on: ubuntu-latest
+build:
+name: Build APK UsahoDen v8.74
+runs-on: ubuntu-latest
 
-    env:
-      ANDROID_HOME: /usr/local/lib/android/sdk
-      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+env:
+  ANDROID_HOME: /usr/local/lib/android/sdk
+  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+steps:
+  - name: Checkout repository
+    uses: actions/checkout@v4
 
-      - name: Setup Java 17
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '17'
+  - name: Setup Java 17
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: '17'
 
-      - name: Setup Gradle 8.7
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.7'
+  - name: Setup Gradle 8.7
+    uses: gradle/actions/setup-gradle@v4
+    with:
+      gradle-version: '8.7'
 
-      - name: Install Android SDK packages
-        shell: bash
-        run: |
-          set -euo pipefail
+  - name: Install Android SDK packages
+    shell: bash
+    run: |
+      set -euo pipefail
 
-          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" \
-            -type f -name sdkmanager -perm /111 2>/dev/null | head -n 1 || true)
+      echo "Memeriksa Android SDK..."
+      test -d "$ANDROID_HOME"
 
-          if [ -z "$SDKMANAGER" ]; then
-            echo "ERROR: sdkmanager tidak ditemukan atau tidak dapat dijalankan."
-            exit 1
-          fi
+      SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" \
+        -type f -name sdkmanager -perm /111 2>/dev/null | head -n 1 || true)
 
-          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
-          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+      if [ -n "$SDKMANAGER" ]; then
+        yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+        "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+      else
+        echo "sdkmanager tidak tersedia; memeriksa paket SDK yang sudah terpasang."
+      fi
 
-      - name: Find and extract UsahoDen ZIP
-        shell: bash
-        run: |
-          set -euo pipefail
+      test -d "$ANDROID_HOME/platforms/android-35"
+      test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+      echo "Android SDK siap digunakan."
 
-          ZIP=$(find . -maxdepth 5 -type f \
-            -iname 'UsahoDen-v8.73-Pengeluaran-Harian-Bulanan-Halaman-Khusus-FIX.zip' \
-            -print -quit)
+  - name: Find and extract UsahoDen ZIP
+    shell: bash
+    run: |
+      set -euo pipefail
 
-          if [ -z "$ZIP" ]; then
-            echo "ERROR: ZIP v8.73 tidak ditemukan di repository."
-            echo "Upload ZIP ke repository terlebih dahulu."
-            exit 1
-          fi
+      ZIP=$(find . -maxdepth 5 -type f \
+        -iname 'UsahoDen-v8.74-Tombol-Kembali-Semua-Halaman.zip' \
+        -print -quit)
 
-          mkdir -p extracted
-          unzip -oq "$ZIP" -d extracted
+      if [ -z "$ZIP" ]; then
+        ZIP=$(find . -maxdepth 5 -type f \
+          -iname '*.zip' -print -quit)
+      fi
 
-          PROJECT=$(find extracted -type f \
-            \( -name settings.gradle -o -name settings.gradle.kts \) \
-            -print -quit | xargs -r dirname)
+      if [ -z "$ZIP" ]; then
+        echo "ERROR: ZIP UsahoDen v8.74 tidak ditemukan."
+        echo "Unggah ZIP v8.74 ke repository terlebih dahulu."
+        exit 1
+      fi
 
-          if [ -z "$PROJECT" ]; then
-            echo "ERROR: Struktur proyek Android tidak ditemukan dalam ZIP."
-            exit 1
-          fi
+      mkdir -p extracted
+      unzip -oq "$ZIP" -d extracted
 
-          echo "PROJECT=$PROJECT" >> "$GITHUB_ENV"
-          echo "Proyek ditemukan: $PROJECT"
+      PROJECT=$(find extracted -type f \
+        \( -name settings.gradle -o -name settings.gradle.kts \) \
+        -print -quit | xargs -r dirname)
 
-      - name: Verify Android project
-        shell: bash
-        run: |
-          set -euo pipefail
+      if [ -z "$PROJECT" ]; then
+        echo "ERROR: File settings.gradle tidak ditemukan di ZIP."
+        exit 1
+      fi
 
-          if [ ! -f "$PROJECT/app/build.gradle" ] && \
-             [ ! -f "$PROJECT/app/build.gradle.kts" ]; then
-            echo "ERROR: Konfigurasi Gradle aplikasi tidak ditemukan."
-            exit 1
-          fi
+      echo "PROJECT=$PROJECT" >> "$GITHUB_ENV"
+      echo "Source ditemukan: $PROJECT"
 
-      - name: Build Debug APK
-        shell: bash
-        run: |
-          set -euo pipefail
+  - name: Verify project version
+    shell: bash
+    run: |
+      set -euo pipefail
 
-          if [ -f "$PROJECT/gradlew" ]; then
-            chmod +x "$PROJECT/gradlew"
-            "$PROJECT/gradlew" -p "$PROJECT" \
-              :app:assembleDebug --no-daemon --stacktrace
-          else
-            gradle -p "$PROJECT" \
-              :app:assembleDebug --no-daemon --stacktrace
-          fi
+      test -f "$PROJECT/app/src/main/assets/index.html"
 
-          APK=$(find "$PROJECT/app/build/outputs/apk" \
-            -type f -name '*.apk' -print -quit)
+      if [ -f "$PROJECT/app/build.gradle" ]; then
+        grep -q "versionName '8.74'" "$PROJECT/app/build.gradle"
+      elif [ -f "$PROJECT/app/build.gradle.kts" ]; then
+        grep -q 'versionName = "8.74"' "$PROJECT/app/build.gradle.kts"
+      else
+        echo "ERROR: File konfigurasi Gradle aplikasi tidak ditemukan."
+        exit 1
+      fi
 
-          if [ -z "$APK" ]; then
-            echo "ERROR: APK tidak ditemukan setelah build."
-            exit 1
-          fi
+      echo "Source UsahoDen v8.74 terdeteksi."
 
-          cp "$APK" "$GITHUB_WORKSPACE/UsahoDen-v8.73-Pengeluaran-Harian-Bulanan-FIX.apk"
+  - name: Build Debug APK
+    shell: bash
+    run: |
+      set -euo pipefail
 
-      - name: Verify APK
-        shell: bash
-        run: |
-          set -euo pipefail
-          APK="$GITHUB_WORKSPACE/UsahoDen-v8.73-Pengeluaran-Harian-Bulanan-FIX.apk"
-          test -s "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
-          echo "Verifikasi APK berhasil."
+      if [ -f "$PROJECT/gradlew" ]; then
+        chmod +x "$PROJECT/gradlew"
+        "$PROJECT/gradlew" -p "$PROJECT" \
+          :app:assembleDebug --no-daemon --stacktrace
+      else
+        gradle -p "$PROJECT" \
+          :app:assembleDebug --no-daemon --stacktrace
+      fi
 
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: UsahoDen-v8.73-Pengeluaran-Harian-Bulanan-FIX
-          path: UsahoDen-v8.73-Pengeluaran-Harian-Bulanan-FIX.apk
-          if-no-files-found: error
-          retention-days: 30
+      APK="$PROJECT/app/build/outputs/apk/debug/app-debug.apk"
+
+      if [ ! -s "$APK" ]; then
+        echo "ERROR: APK tidak ditemukan setelah build."
+        exit 1
+      fi
+
+      cp "$APK" \
+        "$GITHUB_WORKSPACE/UsahoDen-v8.74-Tombol-Kembali-Semua-Halaman.apk"
+
+  - name: Verify APK
+    shell: bash
+    run: |
+      set -euo pipefail
+
+      APK="$GITHUB_WORKSPACE/UsahoDen-v8.74-Tombol-Kembali-Semua-Halaman.apk"
+
+      "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
+
+      "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" \
+        | grep "versionName='8.74'"
+
+      echo "APK v8.74 berhasil diverifikasi."
+
+  - name: Upload APK Artifact
+    uses: actions/upload-artifact@v4
+    with:
+      name: UsahoDen-v8.74-Tombol-Kembali-Semua-Halaman
+      path: UsahoDen-v8.74-Tombol-Kembali-Semua-Halaman.apk
+      if-no-files-found: error
+      retention-days: 30
