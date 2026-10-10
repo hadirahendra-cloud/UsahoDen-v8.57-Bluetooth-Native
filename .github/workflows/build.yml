@@ -1,5 +1,5 @@
 
-name: Build UsahoDen v8.99 - RangMudo Jr Header FIX
+name: Build UsahoDen v9.00 - RangMudo Jr Customer UI FIX
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Build APK v8.99
+    name: Build APK v9.00
     runs-on: ubuntu-latest
 
     steps:
@@ -29,7 +29,7 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Use Preinstalled Android SDK
+      - name: Use Android SDK
         shell: bash
         run: |
           set -euo pipefail
@@ -41,43 +41,59 @@ jobs:
           test -d "$SDK/build-tools/35.0.0"
           test -x "$SDK/build-tools/35.0.0/apksigner"
 
-      - name: Extract and Verify v8.99 Source
+      - name: Prepare Source
         shell: bash
         run: |
           set -euo pipefail
-          ZIP="UsahoDen-v8.99-RangMudo-Jr-Header-FIX.zip"
-          test -f "$ZIP"
+          ZIP="UsahoDen-v9.00-RangMudo-Jr-Customer-UI-FIX.zip"
+          test -f "$ZIP" || {
+            echo "ZIP source tidak ditemukan: $ZIP"
+            exit 1
+          }
+
           mkdir -p extracted-source
           unzip -oq "$ZIP" -d extracted-source
-          PROJECT_DIR=$(find extracted-source -type f -path '*/app/build.gradle' -print -quit | sed 's#/app/build.gradle##')
-          test -n "$PROJECT_DIR"
+
+          PROJECT_DIR=$(find extracted-source -type f \
+            -path '*/app/build.gradle' -print -quit |
+            sed 's#/app/build.gradle##')
+
+          test -n "$PROJECT_DIR" || {
+            echo "app/build.gradle tidak ditemukan"
+            exit 1
+          }
+
           cp -a "$PROJECT_DIR"/. .
+
           test -f app/src/main/assets/index.html
-          grep -q 'v8.99-rangmudo-header-title-fix' app/src/main/assets/index.html
-          grep -q '<div class="brand-name">RangMudo Jr</div>' app/src/main/assets/index.html
-          grep -q '<div class="title" id="title">RangMudo Jr</div>' app/src/main/assets/index.html
-          grep -q "versionName '8.99'" app/build.gradle
-          echo "Source v8.99 terverifikasi."
+          grep -q 'v9.00-rangmudo-customer-ui-fix' app/src/main/assets/index.html
+          grep -q 'customer-edit-layout-v900' app/src/main/assets/index.html
+          grep -q "versionName '9.00'" app/build.gradle
+
+          echo "Source v9.00 berhasil diverifikasi."
 
       - name: Build APK
         shell: bash
         run: |
           set -euo pipefail
-          gradle :app:clean :app:assembleDebug --no-daemon --stacktrace
+          gradle :app:clean :app:assembleDebug \
+            --no-daemon --stacktrace
+
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-          cp "$APK" UsahoDen-v8.99-RangMudo-Jr-Header-FIX.apk
+          cp "$APK" UsahoDen-v9.00-RangMudo-Jr-Customer-UI-FIX.apk
 
       - name: Verify APK
         shell: bash
         run: |
           set -euo pipefail
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
+            verify app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.99-RangMudo-Jr-Header-FIX
-          path: UsahoDen-v8.99-RangMudo-Jr-Header-FIX.apk
+          name: UsahoDen-v9.00-RangMudo-Jr-Customer-UI-FIX
+          path: UsahoDen-v9.00-RangMudo-Jr-Customer-UI-FIX.apk
           if-no-files-found: error
           retention-days: 30
