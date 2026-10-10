@@ -1,4 +1,4 @@
-name: Build UsahoDen v8.91 - Payment Scroll Fix
+name: Build UsahoDen v8.92 - Beranda Scroll Fix
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Build APK UsahoDen v8.91
+    name: Build APK UsahoDen v8.92
     runs-on: ubuntu-latest
 
     steps:
@@ -29,11 +29,11 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Prepare v8.91 Source
+      - name: Prepare v8.92 Source
         shell: bash
         run: |
           set -e
-          ZIP="UsahoDen-v8.91-Fix-Pembayaran-Scroll-FULL-SOURCE.zip"
+          ZIP="UsahoDen-v8.92-Fix-Beranda-Tidak-Tertutup-FULL-SOURCE.zip"
 
           if [ -f "$ZIP" ]; then
             rm -rf extracted-source
@@ -51,23 +51,26 @@ jobs:
 
             cp -a "$PROJECT_DIR"/. .
           elif [ ! -f app/build.gradle ]; then
-            echo "ZIP v8.91 tidak ditemukan di root repository."
+            echo "ZIP v8.92 tidak ditemukan di root repository."
             exit 1
           fi
 
           test -f app/src/main/assets/index.html
-          grep -q 'v891-payment-scroll-fix' app/src/main/assets/index.html
-          grep -q "versionName '8.91'" app/build.gradle
+          grep -q 'v892-home-scroll-safe-area' app/src/main/assets/index.html
+          grep -q 'classList.toggle("home-scroll-mode", page === "home")' app/src/main/assets/index.html
+          grep -q "versionName '8.92'" app/build.gradle
 
       - name: Locate Android SDK
         shell: bash
         run: |
           set -e
           SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+
           test -d "$SDK" || {
             echo "Android SDK tidak ditemukan."
             exit 1
           }
+
           echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
 
@@ -75,10 +78,12 @@ jobs:
         shell: bash
         run: |
           set -e
+
           test -d "$ANDROID_HOME/platforms/android-35" || {
             echo "Android SDK Platform 35 tidak tersedia."
             exit 1
           }
+
           test -d "$ANDROID_HOME/build-tools/35.0.0" || {
             echo "Android Build Tools 35.0.0 tidak tersedia."
             exit 1
@@ -88,10 +93,13 @@ jobs:
         shell: bash
         run: |
           set -e
+
           gradle :app:clean :app:assembleDebug --no-daemon --stacktrace
+
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-          cp "$APK" UsahoDen-v8.91-Pembayaran-Scroll-Fix.apk
+
+          cp "$APK" UsahoDen-v8.92-Beranda-Scroll-Fix.apk
 
       - name: Verify APK
         run: |
@@ -101,7 +109,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.91-Pembayaran-Scroll-Fix
-          path: UsahoDen-v8.91-Pembayaran-Scroll-Fix.apk
+          name: UsahoDen-v8.92-Beranda-Scroll-Fix
+          path: UsahoDen-v8.92-Beranda-Scroll-Fix.apk
           if-no-files-found: error
           retention-days: 30
