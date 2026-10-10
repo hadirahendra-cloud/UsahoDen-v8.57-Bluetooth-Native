@@ -1,5 +1,5 @@
 
-name: Build UsahoDen v8.95
+name: Build UsahoDen v8.96
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Build APK UsahoDen v8.95
+    name: Build APK UsahoDen v8.96
     runs-on: ubuntu-latest
 
     steps:
@@ -30,92 +30,52 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Locate Android SDK
+      - name: Prepare Source
         shell: bash
         run: |
           set -e
-          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
-          if [ ! -d "$SDK" ]; then
-            echo "Android SDK tidak ditemukan: $SDK"
-            exit 1
-          fi
-          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
-          find "$SDK" -maxdepth 5 -type f \
-            \( -name sdkmanager -o -name apksigner \) | head -20
-
-      - name: Install Android SDK Packages
-        shell: bash
-        run: |
-          set -e
-          SDK="$ANDROID_HOME"
-          SDKMANAGER=$(find "$SDK/cmdline-tools" \
-            -type f -name sdkmanager 2>/dev/null | head -1 || true)
-
-          if [ -n "$SDKMANAGER" ]; then
-            if [ ! -d "$SDK/platforms/android-35" ] || \
-               [ ! -d "$SDK/build-tools/35.0.0" ]; then
-              yes | "$SDKMANAGER" --sdk_root="$SDK" \
-                --licenses >/dev/null 2>&1 || true
-              "$SDKMANAGER" --sdk_root="$SDK" \
-                "platforms;android-35" \
-                "build-tools;35.0.0" \
-                "platform-tools"
-            fi
-          fi
-
-          test -d "$SDK/platforms/android-35"
-          test -d "$SDK/build-tools/35.0.0"
-
-      - name: Extract and Prepare Source
-        shell: bash
-        run: |
-          set -e
-          ZIP="UsahoDen-v8.95-Fix-Beranda-Panel-Scroll-FULL-SOURCE.zip"
-          test -f "$ZIP" || {
-            echo "ZIP source v8.95 tidak ditemukan di root repository"
-            exit 1
-          }
-
+          ZIP="UsahoDen-v8.96-Fix-Printer-Buttons-Visible-FULL-SOURCE.zip"
+          test -f "$ZIP"
           mkdir -p extracted-source
           unzip -oq "$ZIP" -d extracted-source
 
           PROJECT_DIR=$(find extracted-source -type f \
             -path '*/app/build.gradle' -print -quit |
             sed 's#/app/build.gradle##')
-
           test -n "$PROJECT_DIR"
           cp -a "$PROJECT_DIR"/. .
 
           test -f app/src/main/assets/index.html
-          grep -q 'v895-home-hero-compact-full-scroll' \
+          grep -q 'v896-printer-picker-footer-above-bottom-tabs' \
             app/src/main/assets/index.html
-          grep -q "versionName '8.95'" app/build.gradle
+          grep -q "versionName '8.96'" app/build.gradle
 
-      - name: Build Debug APK
-        shell: bash
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install SDK Packages
         run: |
           set -e
-          gradle :app:clean :app:assembleDebug \
-            --no-daemon --stacktrace
+          sdkmanager "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
-          APK="app/build/outputs/apk/debug/app-debug.apk"
-          test -s "$APK"
-          cp "$APK" UsahoDen-v8.95.apk
+      - name: Build APK
+        run: |
+          set -e
+          gradle :app:clean :app:assembleDebug --no-daemon
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk \
+            UsahoDen-v8.96.apk
 
       - name: Verify APK
-        shell: bash
         run: |
-          APKSIGNER=$(find "$ANDROID_HOME/build-tools/35.0.0" \
-            -type f -name apksigner | head -1)
-          test -n "$APKSIGNER"
-          "$APKSIGNER" verify \
-            app/build/outputs/apk/debug/app-debug.apk
+          apksigner verify app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.95
-          path: UsahoDen-v8.95.apk
+          name: UsahoDen-v8.96
+          path: UsahoDen-v8.96.apk
           if-no-files-found: error
           retention-days: 30
