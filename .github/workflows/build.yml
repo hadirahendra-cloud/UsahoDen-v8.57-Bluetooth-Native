@@ -14,6 +14,10 @@ jobs:
     name: Build APK UsahoDen v8.73
     runs-on: ubuntu-latest
 
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -29,22 +33,16 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Install Android SDK packages
         shell: bash
         run: |
           set -euo pipefail
-          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
 
-          if [ ! -x "$SDKMANAGER" ]; then
-            SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" \
-              -type f -name sdkmanager -perm /111 2>/dev/null | head -n 1 || true)
-          fi
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" \
+            -type f -name sdkmanager -perm /111 2>/dev/null | head -n 1 || true)
 
-          if [ -z "$SDKMANAGER" ] || [ ! -x "$SDKMANAGER" ]; then
-            echo "ERROR: sdkmanager executable tidak ditemukan."
+          if [ -z "$SDKMANAGER" ]; then
+            echo "ERROR: sdkmanager tidak ditemukan atau tidak dapat dijalankan."
             exit 1
           fi
 
@@ -61,11 +59,8 @@ jobs:
             -print -quit)
 
           if [ -z "$ZIP" ]; then
-            ZIP=$(find . -maxdepth 5 -type f -iname '*.zip' -print -quit)
-          fi
-
-          if [ -z "$ZIP" ]; then
-            echo "ERROR: ZIP aplikasi belum ada di repository."
+            echo "ERROR: ZIP v8.73 tidak ditemukan di repository."
+            echo "Upload ZIP ke repository terlebih dahulu."
             exit 1
           fi
 
@@ -77,7 +72,7 @@ jobs:
             -print -quit | xargs -r dirname)
 
           if [ -z "$PROJECT" ]; then
-            echo "ERROR: settings.gradle tidak ditemukan dalam ZIP."
+            echo "ERROR: Struktur proyek Android tidak ditemukan dalam ZIP."
             exit 1
           fi
 
@@ -95,15 +90,14 @@ jobs:
             exit 1
           fi
 
-          echo "Struktur proyek ditemukan."
-
       - name: Build Debug APK
         shell: bash
         run: |
           set -euo pipefail
 
           if [ -f "$PROJECT/gradlew" ]; then
-            bash "$PROJECT/gradlew" -p "$PROJECT" \
+            chmod +x "$PROJECT/gradlew"
+            "$PROJECT/gradlew" -p "$PROJECT" \
               :app:assembleDebug --no-daemon --stacktrace
           else
             gradle -p "$PROJECT" \
@@ -118,8 +112,7 @@ jobs:
             exit 1
           fi
 
-          cp "$APK" \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.73-Pengeluaran-Harian-Bulanan-FIX.apk"
+          cp "$APK" "$GITHUB_WORKSPACE/UsahoDen-v8.73-Pengeluaran-Harian-Bulanan-FIX.apk"
 
       - name: Verify APK
         shell: bash
