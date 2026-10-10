@@ -10,11 +10,10 @@ permissions:
 
 jobs:
   build:
-    name: Build APK
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Setup Java 17
@@ -24,10 +23,8 @@ jobs:
           java-version: '17'
 
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
-          cmdline-tools-version: 'latest'
-          tools: ''
           packages: |
             platform-tools
             platforms;android-35
@@ -43,10 +40,7 @@ jobs:
         run: |
           set -euo pipefail
           ZIP="UsahoDen-v9.04-Etalase-Harga-Fix.zip"
-          test -f "$ZIP" || {
-            echo "ZIP source tidak ditemukan: $ZIP"
-            exit 1
-          }
+          test -f "$ZIP"
           mkdir -p extracted
           unzip -oq "$ZIP" -d extracted
           PROJECT_DIR=$(find extracted -type f \
@@ -58,7 +52,6 @@ jobs:
           test -f app/src/main/assets/index.html
 
       - name: Set Version
-        shell: bash
         run: |
           set -euo pipefail
           sed -i -E \
@@ -68,14 +61,12 @@ jobs:
           grep -q "versionName '9.04'" app/build.gradle
 
       - name: Build APK
-        shell: bash
         run: |
           set -euo pipefail
-          gradle :app:clean :app:assembleDebug --no-daemon --stacktrace
+          gradle :app:clean :app:assembleDebug --no-daemon
           test -s app/build/outputs/apk/debug/app-debug.apk
 
       - name: Sign APK
-        shell: bash
         env:
           KEYSTORE: ${{ secrets.TOKOKU_KEYSTORE_BASE64 }}
           STORE_PASS: ${{ secrets.TOKOKU_KEYSTORE_PASSWORD }}
