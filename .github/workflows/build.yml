@@ -1,4 +1,4 @@
-name: "Build UsahoDen v8.76 - Etalase Header Tetap"
+name: "Build UsahoDen v8.77 - Perbaikan Etalase Nama Harga"
 
 'on':
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Build APK UsahoDen v8.76
+    name: Build APK UsahoDen v8.77
     runs-on: ubuntu-latest
 
     env:
@@ -45,7 +45,6 @@ jobs:
             echo "ERROR: Android Build Tools 35.0.0 tidak tersedia."
             exit 1
           }
-          echo "Android SDK siap."
 
       - name: Find and extract UsahoDen ZIP
         shell: bash
@@ -53,12 +52,12 @@ jobs:
           set -euo pipefail
 
           ZIP=$(find . -maxdepth 5 -type f \
-            -iname 'UsahoDen-v8.76-Etalase-Header-Tetap-Keranjang-Penjualan.zip' \
+            -iname 'UsahoDen-v8.77-Perbaikan-Etalase-Nama-Harga.zip' \
             -print -quit)
 
           if [ -z "$ZIP" ]; then
-            echo "ERROR: ZIP v8.76 tidak ditemukan di repository."
-            echo "Unggah ZIP v8.76 terlebih dahulu."
+            echo "ERROR: ZIP v8.77 tidak ditemukan di repository."
+            echo "Unggah ZIP v8.77 ke repository terlebih dahulu."
             exit 1
           fi
 
@@ -84,7 +83,7 @@ jobs:
 
           if [ ! -f "$PROJECT/app/build.gradle" ] && \
              [ ! -f "$PROJECT/app/build.gradle.kts" ]; then
-            echo "ERROR: File konfigurasi Gradle aplikasi tidak ditemukan."
+            echo "ERROR: Konfigurasi Gradle aplikasi tidak ditemukan."
             exit 1
           fi
 
@@ -112,17 +111,16 @@ jobs:
           fi
 
           cp "$APK" \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.76-Etalase-Header-Tetap-Keranjang-Penjualan.apk"
+            "$GITHUB_WORKSPACE/UsahoDen-v8.77-Perbaikan-Etalase-Nama-Harga.apk"
 
       - name: Verify APK
         shell: bash
         run: |
           set -euo pipefail
 
-          APK="$GITHUB_WORKSPACE/UsahoDen-v8.76-Etalase-Header-Tetap-Keranjang-Penjualan.apk"
+          APK="$GITHUB_WORKSPACE/UsahoDen-v8.77-Perbaikan-Etalase-Nama-Harga.apk"
 
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
-
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK"
 
           echo "Verifikasi APK selesai."
@@ -130,7 +128,7 @@ jobs:
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.76-Etalase-Header-Tetap-Keranjang-Penjualan
-          path: UsahoDen-v8.76-Etalase-Header-Tetap-Keranjang-Penjualan.apk
+          name: UsahoDen-v8.77-Perbaikan-Etalase-Nama-Harga
+          path: UsahoDen-v8.77-Perbaikan-Etalase-Nama-Harga.apk
           if-no-files-found: error
           retention-days: 30
