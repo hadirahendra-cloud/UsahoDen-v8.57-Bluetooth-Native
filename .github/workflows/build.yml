@@ -29,13 +29,49 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+      - name: Locate Android SDK
+        shell: bash
+        run: |
+          set -e
+
+          if [ -z "$ANDROID_HOME" ]; then
+            if [ -d /usr/local/lib/android/sdk ]; then
+              echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> "$GITHUB_ENV"
+              echo "/usr/local/lib/android/sdk/platform-tools" >> "$GITHUB_PATH"
+              echo "/usr/local/lib/android/sdk/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
+            else
+              echo "Android SDK tidak ditemukan."
+              exit 1
+            fi
+          fi
+
+          echo "Android SDK: ${ANDROID_HOME:-/usr/local/lib/android/sdk}"
 
       - name: Install Android SDK Packages
+        shell: bash
         run: |
-          yes | sdkmanager --licenses || true
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          set -e
+
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          SDKMANAGER="$SDK/cmdline-tools/latest/bin/sdkmanager"
+
+          if [ ! -f "$SDKMANAGER" ]; then
+            SDKMANAGER=$(find "$SDK/cmdline-tools" \
+              -type f -name sdkmanager -print -quit 2>/dev/null || true)
+          fi
+
+          if [ -z "$SDKMANAGER" ] || [ ! -f "$SDKMANAGER" ]; then
+            echo "sdkmanager tidak ditemukan di $SDK"
+            exit 1
+          fi
+
+          chmod +x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses || true
+
+          "$SDKMANAGER" --sdk_root="$SDK" \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
       - name: Extract and Prepare Source
         shell: bash
@@ -43,50 +79,75 @@ jobs:
           set -e
 
           if [ ! -f app/build.gradle ]; then
-            ZIP_FILE=$(find . -maxdepth 3 -type f \
+            mkdir -p extracted-source
+
+            ZIP_FILE=$(find . -maxdepth 4 -type f \
               -name 'UsahoDen-v8.83-Desain-Beranda-Sesuai-Acuan-FULL-SOURCE.zip' \
               -print -quit)
 
             if [ -z "$ZIP_FILE" ]; then
-              ZIP_FILE=$(find . -maxdepth 3 -type f \
+              ZIP_FILE=$(find . -maxdepth 4 -type f \
                 -name '*.zip' -print -quit)
             fi
 
-            if [ -n "$ZIP_FILE" ]; then
-              mkdir -p extracted-source
-              unzip -oq "$ZIP_FILE" -d extracted-source
-            fi
-
-            PROJECT_DIR=$(find . -type f \
-              -path '*/app/build.gradle' \
-              -not -path './.gradle/*' \
-              -print -quit | sed 's#/app/build.gradle##')
-
-            if [ -z "$PROJECT_DIR" ]; then
-              echo "ERROR: Proyek Android tidak ditemukan."
+            if [ -z "$ZIP_FILE" ]; then
+              echo "ZIP sumber tidak ditemukan di repository."
               exit 1
             fi
 
-            if [ "$PROJECT_DIR" != "." ]; then
-              cp -a "$PROJECT_DIR"/. .
+            unzip -oq "$ZIP_FILE" -d extracted-source
+
+            PROJECT_DIR=$(find extracted-source -type f \
+              -path '*/app/build.gradle' \
+              -print -quit | sed 's#/app/build.gradle##')
+
+            if [ -z "$PROJECT_DIR" ]; then
+              echo "Folder proyek Android tidak ditemukan dalam ZIP."
+              exit 1
             fi
+
+            cp -a "$PROJECT_DIR"/. .
           fi
 
           test -f app/build.gradle
           test -f app/src/main/assets/index.html
 
+          echo "Sumber aplikasi berhasil disiapkan."
+
       - name: Build Debug APK
+        shell: bash
         run: |
           set -e
-          gradle :app:clean :app:assembleDebug --no-daemon
-          test -s app/build/outputs/apk/debug/app-debug.apk
-          cp app/build/outputs/apk/debug/app-debug.apk \
-            UsahoDen-v8.83-Premium-Home.apk
+
+          gradle :app:clean :app:assembleDebug \
+            --no-daemon --stacktrace
+
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+
+          if [ ! -s "$APK" ]; then
+            echo "APK tidak ditemukan setelah build."
+            exit 1
+          fi
+
+          cp "$APK" UsahoDen-v8.83-Premium-Home.apk
 
       - name: Verify APK
+        shell: bash
         run: |
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
-            verify app/build/outputs/apk/debug/app-debug.apk
+          set -e
+
+          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+          APKSIGNER="$SDK/build-tools/35.0.0/apksigner"
+
+          if [ ! -f "$APKSIGNER" ]; then
+            echo "apksigner tidak ditemukan."
+            exit 1
+          fi
+
+          "$APKSIGNER" verify \
+            app/build/outputs/apk/debug/app-debug.apk
+
+          echo "Verifikasi APK berhasil."
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
