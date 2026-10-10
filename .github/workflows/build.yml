@@ -33,30 +33,49 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Install Android SDK packages
+        shell: bash
         run: |
           set -euo pipefail
-          yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+
+          if [ ! -f "$SDKMANAGER" ]; then
+            SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" \
+              -type f -name sdkmanager 2>/dev/null | head -n 1 || true)
+          fi
+
+          if [ -z "$SDKMANAGER" ] || [ ! -f "$SDKMANAGER" ]; then
+            echo "ERROR: sdkmanager tidak ditemukan."
+            find "$ANDROID_HOME" -maxdepth 4 -type f \
+              -name sdkmanager 2>/dev/null || true
+            exit 1
+          fi
+
+          chmod +x "$SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+
+          "$SDKMANAGER" \
+            "platform-tools" \
+            "platforms;android-35" \
+            "build-tools;35.0.0"
 
       - name: Find and extract UsahoDen ZIP
         shell: bash
         run: |
           set -euo pipefail
 
-          ZIP=$(find . -maxdepth 4 -type f \
+          ZIP=$(find . -maxdepth 5 -type f \
             -iname 'UsahoDen-v8.73-Pengeluaran-Harian-Bulanan-Halaman-Khusus-FIX.zip' \
             -print -quit)
 
           if [ -z "$ZIP" ]; then
-            ZIP=$(find . -maxdepth 4 -type f -iname '*.zip' -print -quit)
+            ZIP=$(find . -maxdepth 5 -type f \
+              -iname '*.zip' -print -quit)
           fi
 
           if [ -z "$ZIP" ]; then
-            echo "ERROR: ZIP UsahoDen belum ada di repository."
+            echo "ERROR: ZIP aplikasi belum ada di repository."
             exit 1
           fi
 
@@ -65,67 +84,4 @@ jobs:
 
           PROJECT=$(find extracted -type f \
             \( -name settings.gradle -o -name settings.gradle.kts \) \
-            -print -quit | xargs -r dirname)
-
-          if [ -z "$PROJECT" ]; then
-            echo "ERROR: File settings.gradle tidak ditemukan."
-            exit 1
-          fi
-
-          echo "PROJECT=$PROJECT" >> "$GITHUB_ENV"
-          echo "Source ditemukan: $PROJECT"
-
-      - name: Verify Android project
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f "$PROJECT/app/build.gradle" -o \
-               -f "$PROJECT/app/build.gradle.kts"
-
-          echo "Struktur proyek Android ditemukan."
-          find "$PROJECT/app/src/main" -maxdepth 3 -type f | head -50
-
-      - name: Build Debug APK
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [ -f "$PROJECT/gradlew" ]; then
-            chmod +x "$PROJECT/gradlew"
-            "$PROJECT/gradlew" -p "$PROJECT" \
-              :app:assembleDebug --no-daemon --stacktrace
-          else
-            gradle -p "$PROJECT" \
-              :app:assembleDebug --no-daemon --stacktrace
-          fi
-
-          APK=$(find "$PROJECT/app/build/outputs/apk" \
-            -type f -name '*.apk' -print -quit)
-
-          if [ -z "$APK" ]; then
-            echo "ERROR: APK tidak ditemukan."
-            exit 1
-          fi
-
-          cp "$APK" \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.73-Pengeluaran-Harian-Bulanan-FIX.apk"
-
-      - name: Verify APK
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          APK="$GITHUB_WORKSPACE/UsahoDen-v8.73-Pengeluaran-Harian-Bulanan-FIX.apk"
-          test -s "$APK"
-
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
-
-          echo "APK berhasil dibuat dan tanda tangan APK valid."
-
-      - name: Upload APK Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: UsahoDen-v8.73-Pengeluaran-Harian-Bulanan-FIX
-          path: UsahoDen-v8.73-Pengeluaran-Harian-Bulanan-FIX.apk
-          if-no-files-found: error
-          retention-days: 30
+            -print -
