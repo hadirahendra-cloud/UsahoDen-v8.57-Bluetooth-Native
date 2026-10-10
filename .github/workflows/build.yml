@@ -1,9 +1,10 @@
-name: Build UsahoDen v8.73 - Riwayat Pengeluaran Halaman Khusus
+name: Build UsahoDen v8.73 - Pengeluaran Harian Bulanan
 
 on:
 workflow_dispatch:
 push:
-branches: [ main ]
+branches:
+- main
 
 permissions:
 contents: read
@@ -12,6 +13,10 @@ jobs:
 build:
 name: Build APK UsahoDen v8.73
 runs-on: ubuntu-latest
+
+env:
+  ANDROID_HOME: /usr/local/lib/android/sdk
+  ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
 steps:
   - name: Checkout repository
@@ -28,43 +33,67 @@ steps:
     with:
       gradle-version: '8.7'
 
-  - name: Setup Android SDK
-    uses: android-actions/setup-android@v3
-
-  - name: Install SDK packages
+  - name: Install Android SDK
     shell: bash
     run: |
       set -euo pipefail
-      yes | sdkmanager --licenses >/dev/null 2>&1 || true
-      sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+      SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -1)
+      test -n "$SDKMANAGER"
+      chmod +x "$SDKMANAGER"
+      yes | "$SDKMANAGER" --licenses >/dev/null 2>&1 || true
+      "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
 
-  - name: Verify source and version
+  - name: Extract UsahoDen ZIP
     shell: bash
     run: |
       set -euo pipefail
-      test -f app/src/main/assets/index.html
-      grep -q "function expenseOpenHistory" app/src/main/assets/index.html
-      grep -q "function expenseOpenMonth" app/src/main/assets/index.html
-      grep -q "function expenseOpenDate" app/src/main/assets/index.html
-      grep -q "versionName '8.73'" app/build.gradle
-      echo "Source riwayat halaman khusus v8.73 terverifikasi."
+      ZIP=$(find . -maxdepth 3 -type f -iname 'UsahoDen-v8.73-Pengeluaran-Harian-Bulanan-Halaman-Khusus-FIX.zip' -print -quit)
+      if [ -z "$ZIP" ]; then
+        ZIP=$(find . -maxdepth 3 -type f -iname '*.zip' -print -quit)
+      fi
+      if [ -z "$ZIP" ]; then
+        echo "ERROR: File ZIP UsahoDen tidak ditemukan di repository."
+        exit 1
+      fi
+      mkdir -p extracted
+      unzip -oq "$ZIP" -d extracted
+      PROJECT=$(find extracted -type f -name settings.gradle -print -quit | xargs -r dirname)
+      if [ -z "$PROJECT" ]; then
+        echo "ERROR: settings.gradle tidak ditemukan di dalam ZIP."
+        exit 1
+      fi
+      echo "PROJECT=$PROJECT" >> "$GITHUB_ENV"
+      echo "Source ditemukan: $PROJECT"
 
-  - name: Build APK
+  - name: Verify project files
     shell: bash
     run: |
       set -euo pipefail
-      gradle :app:clean :app:assembleDebug --no-daemon --stacktrace
-      test -s app/build/outputs/apk/debug/app-debug.apk
-      cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/UsahoDen-v8.73-Pengeluaran-Harian-Bulanan-FIX.apk"
+      test -f "$PROJECT/settings.gradle"
+      test -f "$PROJECT/app/build.gradle"
+      test -f "$PROJECT/app/src/main/assets/index.html"
+      grep -q "versionName '8.73'" "$PROJECT/app/build.gradle"
+      echo "Source UsahoDen v8.73 ditemukan."
+
+  - name: Build Debug APK
+    shell: bash
+    run: |
+      set -euo pipefail
+      gradle -p "$PROJECT" :app:clean :app:assembleDebug --no-daemon --stacktrace
+      APK="$PROJECT/app/build/outputs/apk/debug/app-debug.apk"
+      test -s "$APK"
+      cp "$APK" "$GITHUB_WORKSPACE/UsahoDen-v8.73-Pengeluaran-Harian-Bulanan-FIX.apk"
 
   - name: Verify APK
     shell: bash
     run: |
       set -euo pipefail
-      "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify app/build/outputs/apk/debug/app-debug.apk
-      "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging app/build/outputs/apk/debug/app-debug.apk | grep "versionName='8.73'"
+      APK="$GITHUB_WORKSPACE/UsahoDen-v8.73-Pengeluaran-Harian-Bulanan-FIX.apk"
+      "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
+      "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep "versionName='8.73'"
+      echo "APK berhasil dibuat dan diverifikasi."
 
-  - name: Upload APK
+  - name: Upload APK Artifact
     uses: actions/upload-artifact@v4
     with:
       name: UsahoDen-v8.73-Pengeluaran-Harian-Bulanan-FIX
