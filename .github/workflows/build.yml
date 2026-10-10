@@ -1,4 +1,4 @@
-name: Build UsahoDen v8.83 Premium
+name: Build UsahoDen v8.84 Laporan Bisnis Modern
 
 on:
   workflow_dispatch:
@@ -11,8 +11,8 @@ permissions:
 
 jobs:
   build:
+    name: Build APK UsahoDen v8.84
     runs-on: ubuntu-latest
-    name: Build APK UsahoDen v8.83
 
     steps:
       - name: Checkout Repository
@@ -29,44 +29,13 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Locate Android SDK
-        shell: bash
-        run: |
-          set -e
-          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
-
-          if [ ! -d "$SDK" ]; then
-            echo "Android SDK tidak ditemukan: $SDK"
-            exit 1
-          fi
-
-          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
-          echo "Android SDK ditemukan: $SDK"
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
       - name: Install Android SDK Packages
-        shell: bash
         run: |
           set -e
-          SDK="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-
-          SDKMANAGER=$(find "$SDK/cmdline-tools" \
-            -type f -name sdkmanager -print -quit 2>/dev/null || true)
-
-          if [ -z "$SDKMANAGER" ]; then
-            echo "sdkmanager tidak ditemukan."
-            exit 1
-          fi
-
-          if [ ! -x "$SDKMANAGER" ]; then
-            echo "sdkmanager tidak memiliki izin eksekusi."
-            exit 1
-          fi
-
-          yes | "$SDKMANAGER" \
-            --sdk_root="$SDK" --licenses || true
-
-          "$SDKMANAGER" --sdk_root="$SDK" \
+          sdkmanager --install \
             "platform-tools" \
             "platforms;android-35" \
             "build-tools;35.0.0"
@@ -77,24 +46,23 @@ jobs:
           set -e
 
           if [ ! -f app/build.gradle ]; then
-            ZIP_FILE=$(find . -maxdepth 4 -type f \
-              -name 'UsahoDen-v8.83-Desain-Beranda-Sesuai-Acuan-FULL-SOURCE.zip' \
-              -print -quit)
+            ZIP_FILE="UsahoDen-v8.84-Laporan-Bisnis-Modern-FULL-SOURCE.zip"
 
-            if [ -z "$ZIP_FILE" ]; then
-              echo "ZIP sumber v8.83 belum ada di repository."
+            if [ ! -f "$ZIP_FILE" ]; then
+              echo "ZIP sumber v8.84 tidak ditemukan."
+              echo "Upload ZIP ke repository terlebih dahulu."
               exit 1
             fi
 
             mkdir -p extracted-source
             unzip -oq "$ZIP_FILE" -d extracted-source
 
-            PROJECT_DIR=$(find extracted-source -type f \
-              -path '*/app/build.gradle' \
+            PROJECT_DIR=$(find extracted-source \
+              -type f -path '*/app/build.gradle' \
               -print -quit | sed 's#/app/build.gradle##')
 
             if [ -z "$PROJECT_DIR" ]; then
-              echo "Proyek Android tidak ditemukan dalam ZIP."
+              echo "Proyek Android tidak ditemukan."
               exit 1
             fi
 
@@ -104,32 +72,27 @@ jobs:
           test -f app/build.gradle
           test -f app/src/main/assets/index.html
 
-      - name: Build Debug APK
-        shell: bash
+      - name: Build APK
         run: |
           set -e
+
           gradle :app:clean :app:assembleDebug \
             --no-daemon --stacktrace
 
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
 
-          cp "$APK" UsahoDen-v8.83-Premium-Home.apk
+          cp "$APK" UsahoDen-v8.84-Laporan-Bisnis.apk
 
       - name: Verify APK
-        shell: bash
         run: |
-          set -e
-          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
-
-          test -x "$APKSIGNER"
-          "$APKSIGNER" verify \
-            app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
+            verify app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.83-Premium-Home
-          path: UsahoDen-v8.83-Premium-Home.apk
+          name: UsahoDen-v8.84-Laporan-Bisnis
+          path: UsahoDen-v8.84-Laporan-Bisnis.apk
           if-no-files-found: error
           retention-days: 30
