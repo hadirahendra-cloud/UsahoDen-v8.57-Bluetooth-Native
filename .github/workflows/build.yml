@@ -1,3 +1,4 @@
+
 name: "Build UsahoDen v8.79 - Hapus Tombol Kembali Universal"
 
 'on':
@@ -11,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Build APK UsahoDen v8.79
+    name: Build APK UsahoDen
     runs-on: ubuntu-latest
 
     env:
@@ -37,10 +38,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+
           test -d "$ANDROID_HOME/platforms/android-35" || {
             echo "ERROR: Android SDK platform 35 tidak tersedia."
             exit 1
           }
+
           test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner" || {
             echo "ERROR: Android Build Tools 35.0.0 tidak tersedia."
             exit 1
@@ -57,7 +60,7 @@ jobs:
 
           if [ -z "$ZIP" ]; then
             echo "ERROR: ZIP v8.79 tidak ditemukan di repository."
-            echo "Unggah ZIP v8.79 terlebih dahulu."
+            echo "Unggah ZIP source v8.79 ke repository terlebih dahulu."
             exit 1
           fi
 
@@ -96,11 +99,18 @@ jobs:
 
           if [ -f "$PROJECT/gradlew" ]; then
             chmod +x "$PROJECT/gradlew"
-            "$PROJECT/gradlew" -p "$PROJECT" \
-              :app:assembleDebug --no-daemon --stacktrace
+
+            "$PROJECT/gradlew" \
+              -p "$PROJECT" \
+              :app:assembleDebug \
+              --no-daemon \
+              --stacktrace
           else
-            gradle -p "$PROJECT" \
-              :app:assembleDebug --no-daemon --stacktrace
+            gradle \
+              -p "$PROJECT" \
+              :app:assembleDebug \
+              --no-daemon \
+              --stacktrace
           fi
 
           APK="$PROJECT/app/build/outputs/apk/debug/app-debug.apk"
@@ -113,13 +123,23 @@ jobs:
           cp "$APK" \
             "$GITHUB_WORKSPACE/UsahoDen-v8.79-Hapus-Tombol-Kembali-Universal.apk"
 
+          echo "APK berhasil dibuat."
+
       - name: Verify APK
         shell: bash
         run: |
           set -euo pipefail
+
           APK="$GITHUB_WORKSPACE/UsahoDen-v8.79-Hapus-Tombol-Kembali-Universal.apk"
+
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
-          echo "Verifikasi tanda tangan APK berhasil."
+
+          echo "Verifikasi APK berhasil."
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
+        with:
+          name: UsahoDen-v8.79-Hapus-Tombol-Kembali-Universal
+          path: UsahoDen-v8.79-Hapus-Tombol-Kembali-Universal.apk
+          if-no-files-found: error
+          retention-days: 30
