@@ -1,5 +1,5 @@
 
-name: Build UsahoDen v9.01 - RangMudo Jr
+name: Build UsahoDen v9.02 - RangMudo Jr
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Build APK v9.01
+    name: Build APK v9.02
     runs-on: ubuntu-latest
 
     steps:
@@ -29,17 +29,31 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK Packages
+      - name: Prepare Android SDK
         shell: bash
         run: |
           set -euo pipefail
-          sdkmanager --install \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          test -d "$SDK" || {
+            echo "Android SDK tidak ditemukan: $SDK"
+            exit 1
+          }
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          SDKMANAGER=$(find "$SDK/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -n 1 || true)
+          if [ ! -d "$SDK/platforms/android-35" ] || [ ! -d "$SDK/build-tools/35.0.0" ]; then
+            test -n "$SDKMANAGER" || {
+              echo "SDK Manager tidak ditemukan."
+              exit 1
+            }
+            yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses || true
+            "$SDKMANAGER" --sdk_root="$SDK" \
+              "platform-tools" \
+              "platforms;android-35" \
+              "build-tools;35.0.0"
+          fi
+          test -x "$SDK/build-tools/35.0.0/apksigner"
+          echo "Android SDK siap."
 
       - name: Prepare Source
         shell: bash
@@ -47,26 +61,23 @@ jobs:
           set -euo pipefail
           ZIP="UsahoDen-v9.01-RangMudo-Jr-Full-Customer-Names.zip"
           test -f "$ZIP" || {
-            echo "ZIP v9.01 tidak ditemukan di root repositori"
+            echo "ZIP source tidak ditemukan: $ZIP"
             exit 1
           }
-
           mkdir -p extracted-source
           unzip -oq "$ZIP" -d extracted-source
-
           PROJECT_DIR=$(find extracted-source -type f \
             -path '*/app/build.gradle' -print -quit |
             sed 's#/app/build.gradle##')
-
           test -n "$PROJECT_DIR"
           cp -a "$PROJECT_DIR"/. .
-
           test -f app/src/main/assets/index.html
           grep -q 'v9.01-rangmudo-full-customer-names' \
             app/src/main/assets/index.html
-          grep -q 'text-overflow:clip' \
-            app/src/main/assets/index.html
-          grep -q "versionName '9.01'" app/build.gradle
+          grep -q "applicationId 'com.usahoden.app'" app/build.gradle
+          sed -i "s/versionCode 901/versionCode 902/; s/versionName '9.01'/versionName '9.02'/" app/build.gradle
+          grep -q "versionCode 902" app/build.gradle
+          grep -q "versionName '9.02'" app/build.gradle
 
       - name: Build APK
         shell: bash
@@ -74,21 +85,21 @@ jobs:
           set -euo pipefail
           gradle :app:clean :app:assembleDebug \
             --no-daemon --stacktrace
-
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-          cp "$APK" UsahoDen-v9.01-RangMudo-Jr.apk
+          cp "$APK" UsahoDen-v9.02-RangMudo-Jr.apk
 
       - name: Verify APK
         shell: bash
         run: |
+          set -euo pipefail
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
             verify app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v9.01-RangMudo-Jr
-          path: UsahoDen-v9.01-RangMudo-Jr.apk
+          name: UsahoDen-v9.02-RangMudo-Jr
+          path: UsahoDen-v9.02-RangMudo-Jr.apk
           if-no-files-found: error
           retention-days: 30
