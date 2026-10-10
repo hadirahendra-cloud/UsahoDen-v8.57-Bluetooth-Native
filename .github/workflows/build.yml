@@ -1,4 +1,4 @@
-name: "Build UsahoDen v8.75 - Etalase Keranjang Penjualan"
+name: "Build UsahoDen v8.76 - Etalase Header Tetap"
 
 'on':
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Build APK UsahoDen v8.75
+    name: Build APK UsahoDen v8.76
     runs-on: ubuntu-latest
 
     env:
@@ -33,7 +33,7 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Check Android SDK
+      - name: Verify Android SDK
         shell: bash
         run: |
           set -euo pipefail
@@ -53,12 +53,12 @@ jobs:
           set -euo pipefail
 
           ZIP=$(find . -maxdepth 5 -type f \
-            -iname 'UsahoDen-v8.75-Etalase-Keranjang-Pintasan-Penjualan.zip' \
+            -iname 'UsahoDen-v8.76-Etalase-Header-Tetap-Keranjang-Penjualan.zip' \
             -print -quit)
 
           if [ -z "$ZIP" ]; then
-            echo "ERROR: ZIP UsahoDen v8.75 tidak ditemukan."
-            echo "Unggah ZIP v8.75 ke repository terlebih dahulu."
+            echo "ERROR: ZIP v8.76 tidak ditemukan di repository."
+            echo "Unggah ZIP v8.76 terlebih dahulu."
             exit 1
           fi
 
@@ -75,7 +75,7 @@ jobs:
           fi
 
           echo "PROJECT=$PROJECT" >> "$GITHUB_ENV"
-          echo "Proyek ditemukan: $PROJECT"
+          echo "Source ditemukan: $PROJECT"
 
       - name: Verify Android project
         shell: bash
@@ -84,11 +84,11 @@ jobs:
 
           if [ ! -f "$PROJECT/app/build.gradle" ] && \
              [ ! -f "$PROJECT/app/build.gradle.kts" ]; then
-            echo "ERROR: Konfigurasi Gradle aplikasi tidak ditemukan."
+            echo "ERROR: File konfigurasi Gradle aplikasi tidak ditemukan."
             exit 1
           fi
 
-          echo "Struktur proyek ditemukan."
+          echo "Struktur proyek Android ditemukan."
 
       - name: Build Debug APK
         shell: bash
@@ -112,25 +112,25 @@ jobs:
           fi
 
           cp "$APK" \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.75-Etalase-Keranjang-Pintasan-Penjualan.apk"
+            "$GITHUB_WORKSPACE/UsahoDen-v8.76-Etalase-Header-Tetap-Keranjang-Penjualan.apk"
 
       - name: Verify APK
         shell: bash
         run: |
           set -euo pipefail
 
-          APK="$GITHUB_WORKSPACE/UsahoDen-v8.75-Etalase-Keranjang-Pintasan-Penjualan.apk"
+          APK="$GITHUB_WORKSPACE/UsahoDen-v8.76-Etalase-Header-Tetap-Keranjang-Penjualan.apk"
 
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
 
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK"
 
-          echo "Verifikasi APK berhasil."
+          echo "Verifikasi APK selesai."
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.75-Etalase-Keranjang-Pintasan-Penjualan
-          path: UsahoDen-v8.75-Etalase-Keranjang-Pintasan-Penjualan.apk
+          name: UsahoDen-v8.76-Etalase-Header-Tetap-Keranjang-Penjualan
+          path: UsahoDen-v8.76-Etalase-Header-Tetap-Keranjang-Penjualan.apk
           if-no-files-found: error
           retention-days: 30
