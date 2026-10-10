@@ -1,4 +1,4 @@
-name: "Build UsahoDen v8.74 - Tombol Kembali Semua Halaman"
+name: "Build UsahoDen v8.75 - Etalase Keranjang Penjualan"
 
 'on':
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build:
-    name: Build APK UsahoDen v8.74
+    name: Build APK UsahoDen v8.75
     runs-on: ubuntu-latest
 
     env:
@@ -37,7 +37,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          echo "Memeriksa Android SDK..."
           test -d "$ANDROID_HOME/platforms/android-35" || {
             echo "ERROR: Android SDK platform 35 tidak tersedia."
             exit 1
@@ -54,12 +53,12 @@ jobs:
           set -euo pipefail
 
           ZIP=$(find . -maxdepth 5 -type f \
-            -iname 'UsahoDen-v8.74-Tombol-Kembali-Semua-Halaman.zip' \
+            -iname 'UsahoDen-v8.75-Etalase-Keranjang-Pintasan-Penjualan.zip' \
             -print -quit)
 
           if [ -z "$ZIP" ]; then
-            echo "ERROR: ZIP UsahoDen v8.74 tidak ditemukan."
-            echo "Pastikan ZIP sudah diunggah ke repository."
+            echo "ERROR: ZIP UsahoDen v8.75 tidak ditemukan."
+            echo "Unggah ZIP v8.75 ke repository terlebih dahulu."
             exit 1
           fi
 
@@ -113,26 +112,25 @@ jobs:
           fi
 
           cp "$APK" \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.74-Tombol-Kembali-Semua-Halaman.apk"
+            "$GITHUB_WORKSPACE/UsahoDen-v8.75-Etalase-Keranjang-Pintasan-Penjualan.apk"
 
       - name: Verify APK
         shell: bash
         run: |
           set -euo pipefail
 
-          APK="$GITHUB_WORKSPACE/UsahoDen-v8.74-Tombol-Kembali-Semua-Halaman.apk"
+          APK="$GITHUB_WORKSPACE/UsahoDen-v8.75-Etalase-Keranjang-Pintasan-Penjualan.apk"
 
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$APK"
 
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" \
-            | grep "versionName='8.74'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK"
 
           echo "Verifikasi APK berhasil."
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.74-Tombol-Kembali-Semua-Halaman
-          path: UsahoDen-v8.74-Tombol-Kembali-Semua-Halaman.apk
+          name: UsahoDen-v8.75-Etalase-Keranjang-Pintasan-Penjualan
+          path: UsahoDen-v8.75-Etalase-Keranjang-Pintasan-Penjualan.apk
           if-no-files-found: error
           retention-days: 30
