@@ -1,4 +1,4 @@
-name: Build UsahoDen v8.71 Pengeluaran Riwayat FIX
+name: Build UsahoDen v8.72 Pengeluaran Harian Bulanan FIX
 
 on:
   workflow_dispatch:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   build:
-    name: Build APK UsahoDen v8.71
+    name: Build APK UsahoDen v8.72
     runs-on: ubuntu-latest
 
     steps:
@@ -55,26 +55,28 @@ jobs:
 
           echo "Android SDK siap."
 
-      - name: Cari ZIP v8.71
+      - name: Cari ZIP v8.72
         shell: bash
         run: |
           set -e
 
-          ZIP="./UsahoDen-v8.71-Pengeluaran-Riwayat-FIX.zip"
+          ZIP="./UsahoDen-v8.72-Pengeluaran-Harian-Bulanan-FIX.zip"
 
           if [ ! -f "$ZIP" ]; then
-            echo "ERROR: ZIP v8.71 tidak ditemukan."
-            echo "Pastikan ZIP diunggah ke halaman utama repository."
+            echo "ERROR: ZIP v8.72 tidak ditemukan."
+            echo "Pastikan ZIP berada di halaman utama repository."
             find . -maxdepth 1 -type f -name "*.zip" -print
             exit 1
           fi
 
-          echo "ZIP ditemukan:"
+          echo "ZIP yang digunakan:"
           ls -lh "$ZIP"
 
           rm -rf build-project
           mkdir -p build-project
           unzip -q "$ZIP" -d build-project
+
+          echo "ZIP berhasil diekstrak."
 
       - name: Cari Project Android
         shell: bash
@@ -123,7 +125,7 @@ jobs:
             --no-daemon \
             --stacktrace
 
-          echo "Build APK selesai."
+          echo "Build APK berhasil."
 
       - name: Siapkan APK
         shell: bash
@@ -144,15 +146,15 @@ jobs:
           fi
 
           cp "$APK" \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.71-Pengeluaran-Riwayat-FIX.apk"
+            "$GITHUB_WORKSPACE/UsahoDen-v8.72-Pengeluaran-Harian-Bulanan-FIX.apk"
 
           ls -lh \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.71-Pengeluaran-Riwayat-FIX.apk"
+            "$GITHUB_WORKSPACE/UsahoDen-v8.72-Pengeluaran-Harian-Bulanan-FIX.apk"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.71-Pengeluaran-Riwayat-FIX
-          path: UsahoDen-v8.71-Pengeluaran-Riwayat-FIX.apk
+          name: UsahoDen-v8.72-Pengeluaran-Harian-Bulanan-FIX
+          path: UsahoDen-v8.72-Pengeluaran-Harian-Bulanan-FIX.apk
           if-no-files-found: error
           retention-days: 7
