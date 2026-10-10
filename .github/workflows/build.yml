@@ -1,5 +1,5 @@
 
-name: Build UsahoDen v8.96
+name: Build APK UsahoDen v8.96
 
 on:
   workflow_dispatch:
@@ -34,33 +34,49 @@ jobs:
         shell: bash
         run: |
           set -e
-          ZIP="UsahoDen-v8.96-Fix-Printer-Buttons-Visible-FULL-SOURCE.zip"
-          test -f "$ZIP"
-          mkdir -p extracted-source
-          unzip -oq "$ZIP" -d extracted-source
 
-          PROJECT_DIR=$(find extracted-source -type f \
-            -path '*/app/build.gradle' -print -quit |
-            sed 's#/app/build.gradle##')
-          test -n "$PROJECT_DIR"
-          cp -a "$PROJECT_DIR"/. .
+          if [ ! -f app/build.gradle ]; then
+            ZIP=$(find . -maxdepth 1 -type f \
+              -name 'UsahoDen-v8.96*.zip' -print -quit)
 
-          test -f app/src/main/assets/index.html
-          grep -q 'v896-printer-picker-footer-above-bottom-tabs' \
-            app/src/main/assets/index.html
+            if [ -z "$ZIP" ]; then
+              echo "ZIP source v8.96 tidak ditemukan di root repository."
+              exit 1
+            fi
+
+            mkdir -p extracted-source
+            unzip -oq "$ZIP" -d extracted-source
+
+            PROJECT_DIR=$(find extracted-source -type f \
+              -path '*/app/build.gradle' -print -quit |
+              sed 's#/app/build.gradle##')
+
+            test -n "$PROJECT_DIR"
+            cp -a "$PROJECT_DIR"/. .
+          fi
+
+          test -s app/src/main/assets/index.html
           grep -q "versionName '8.96'" app/build.gradle
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install SDK Packages
+      - name: Locate Android SDK
+        shell: bash
         run: |
           set -e
-          sdkmanager "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          test -d "$SDK"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+
+      - name: Check Android SDK
+        shell: bash
+        run: |
+          set -e
+          test -d "$ANDROID_HOME/platforms/android-35"
+          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner"
+          echo "Android SDK siap digunakan."
 
       - name: Build APK
+        shell: bash
         run: |
           set -e
           gradle :app:clean :app:assembleDebug --no-daemon
@@ -70,7 +86,8 @@ jobs:
 
       - name: Verify APK
         run: |
-          apksigner verify app/build/outputs/apk/debug/app-debug.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
+            app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
