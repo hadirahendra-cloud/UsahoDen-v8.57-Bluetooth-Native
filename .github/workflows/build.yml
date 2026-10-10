@@ -1,7 +1,6 @@
+name: Build UsahoDen v8.83 Premium
 
-name: "Build UsahoDen v8.82 - Premium Futuristic"
-
-'on':
+on:
   workflow_dispatch:
   push:
     branches:
@@ -12,15 +11,11 @@ permissions:
 
 jobs:
   build:
-    name: Build APK UsahoDen v8.82
+    name: Build APK UsahoDen v8.83
     runs-on: ubuntu-latest
 
-    env:
-      ANDROID_HOME: /usr/local/lib/android/sdk
-      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
-
     steps:
-      - name: Checkout repository
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Setup Java 17
@@ -34,93 +29,69 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Verify Android SDK
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK Packages
+        run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Extract and Prepare Source
         shell: bash
         run: |
-          set -euo pipefail
-          test -d "$ANDROID_HOME/platforms/android-35" || {
-            echo "ERROR: Android SDK platform 35 tidak tersedia."
-            exit 1
-          }
-          test -x "$ANDROID_HOME/build-tools/35.0.0/apksigner" || {
-            echo "ERROR: Android Build Tools 35.0.0 tidak tersedia."
-            exit 1
-          }
+          set -e
 
-      - name: Find and extract source ZIP
-        shell: bash
-        run: |
-          set -euo pipefail
-          ZIP=$(find . -maxdepth 5 -type f \
-            -iname 'UsahoDen-v8.82-Premium-Futuristic-FULL-SOURCE.zip' \
-            -print -quit)
+          if [ ! -f app/build.gradle ]; then
+            ZIP_FILE=$(find . -maxdepth 3 -type f \
+              -name 'UsahoDen-v8.83-Desain-Beranda-Sesuai-Acuan-FULL-SOURCE.zip' \
+              -print -quit)
 
-          if [ -z "$ZIP" ]; then
-            echo "ERROR: ZIP v8.82 belum diunggah ke repository."
-            exit 1
+            if [ -z "$ZIP_FILE" ]; then
+              ZIP_FILE=$(find . -maxdepth 3 -type f \
+                -name '*.zip' -print -quit)
+            fi
+
+            if [ -n "$ZIP_FILE" ]; then
+              mkdir -p extracted-source
+              unzip -oq "$ZIP_FILE" -d extracted-source
+            fi
+
+            PROJECT_DIR=$(find . -type f \
+              -path '*/app/build.gradle' \
+              -not -path './.gradle/*' \
+              -print -quit | sed 's#/app/build.gradle##')
+
+            if [ -z "$PROJECT_DIR" ]; then
+              echo "ERROR: Proyek Android tidak ditemukan."
+              exit 1
+            fi
+
+            if [ "$PROJECT_DIR" != "." ]; then
+              cp -a "$PROJECT_DIR"/. .
+            fi
           fi
 
-          mkdir -p extracted
-          unzip -oq "$ZIP" -d extracted
-
-          PROJECT=$(find extracted -type f \
-            \( -name settings.gradle -o -name settings.gradle.kts \) \
-            -print -quit | xargs -r dirname)
-
-          if [ -z "$PROJECT" ]; then
-            echo "ERROR: settings.gradle tidak ditemukan."
-            exit 1
-          fi
-
-          echo "PROJECT=$PROJECT" >> "$GITHUB_ENV"
-          echo "Source ditemukan: $PROJECT"
-
-      - name: Verify Android project
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f "$PROJECT/app/build.gradle" || \
-          test -f "$PROJECT/app/build.gradle.kts" || {
-            echo "ERROR: Konfigurasi Gradle aplikasi tidak ditemukan."
-            exit 1
-          }
+          test -f app/build.gradle
+          test -f app/src/main/assets/index.html
 
       - name: Build Debug APK
-        shell: bash
         run: |
-          set -euo pipefail
-
-          if [ -f "$PROJECT/gradlew" ]; then
-            chmod +x "$PROJECT/gradlew"
-            "$PROJECT/gradlew" -p "$PROJECT" \
-              :app:clean :app:assembleDebug \
-              --no-daemon --stacktrace
-          else
-            gradle -p "$PROJECT" \
-              :app:clean :app:assembleDebug \
-              --no-daemon --stacktrace
-          fi
-
-          APK="$PROJECT/app/build/outputs/apk/debug/app-debug.apk"
-          test -s "$APK" || {
-            echo "ERROR: APK tidak ditemukan setelah build."
-            exit 1
-          }
-
-          cp "$APK" \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.82-Premium-Futuristic.apk"
+          set -e
+          gradle :app:clean :app:assembleDebug --no-daemon
+          test -s app/build/outputs/apk/debug/app-debug.apk
+          cp app/build/outputs/apk/debug/app-debug.apk \
+            UsahoDen-v8.83-Premium-Home.apk
 
       - name: Verify APK
-        shell: bash
         run: |
-          set -euo pipefail
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.82-Premium-Futuristic.apk"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" \
+            verify app/build/outputs/apk/debug/app-debug.apk
 
-      - name: Upload APK Artifact
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.82-Premium-Futuristic
-          path: UsahoDen-v8.82-Premium-Futuristic.apk
+          name: UsahoDen-v8.83-Premium-Home
+          path: UsahoDen-v8.83-Premium-Home.apk
           if-no-files-found: error
           retention-days: 30
