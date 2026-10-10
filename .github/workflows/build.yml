@@ -1,5 +1,5 @@
 
-name: "Build UsahoDen v8.82 - UI Modern Eksperimen"
+name: "Build UsahoDen v8.82 - Premium Futuristic"
 
 'on':
   workflow_dispatch:
@@ -51,13 +51,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-
           ZIP=$(find . -maxdepth 5 -type f \
-            -iname 'UsahoDen-v8.82-UI-Modern-Eksperimen.zip' \
+            -iname 'UsahoDen-v8.82-Premium-Futuristic-FULL-SOURCE.zip' \
             -print -quit)
 
           if [ -z "$ZIP" ]; then
-            echo "ERROR: ZIP v8.82 tidak ditemukan di repository."
+            echo "ERROR: ZIP v8.82 belum diunggah ke repository."
             exit 1
           fi
 
@@ -74,16 +73,17 @@ jobs:
           fi
 
           echo "PROJECT=$PROJECT" >> "$GITHUB_ENV"
+          echo "Source ditemukan: $PROJECT"
 
       - name: Verify Android project
         shell: bash
         run: |
           set -euo pipefail
-          if [ ! -f "$PROJECT/app/build.gradle" ] && \
-             [ ! -f "$PROJECT/app/build.gradle.kts" ]; then
+          test -f "$PROJECT/app/build.gradle" || \
+          test -f "$PROJECT/app/build.gradle.kts" || {
             echo "ERROR: Konfigurasi Gradle aplikasi tidak ditemukan."
             exit 1
-          fi
+          }
 
       - name: Build Debug APK
         shell: bash
@@ -102,26 +102,25 @@ jobs:
           fi
 
           APK="$PROJECT/app/build/outputs/apk/debug/app-debug.apk"
-
-          if [ ! -s "$APK" ]; then
-            echo "ERROR: APK tidak ditemukan."
+          test -s "$APK" || {
+            echo "ERROR: APK tidak ditemukan setelah build."
             exit 1
-          fi
+          }
 
           cp "$APK" \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.82-UI-Modern-Eksperimen.apk"
+            "$GITHUB_WORKSPACE/UsahoDen-v8.82-Premium-Futuristic.apk"
 
       - name: Verify APK
         shell: bash
         run: |
           set -euo pipefail
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
-            "$GITHUB_WORKSPACE/UsahoDen-v8.82-UI-Modern-Eksperimen.apk"
+            "$GITHUB_WORKSPACE/UsahoDen-v8.82-Premium-Futuristic.apk"
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.82-UI-Modern-Eksperimen
-          path: UsahoDen-v8.82-UI-Modern-Eksperimen.apk
+          name: UsahoDen-v8.82-Premium-Futuristic
+          path: UsahoDen-v8.82-Premium-Futuristic.apk
           if-no-files-found: error
           retention-days: 30
