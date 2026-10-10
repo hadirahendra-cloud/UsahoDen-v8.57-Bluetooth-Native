@@ -1,5 +1,5 @@
 
-name: Build UsahoDen v8.97 - RangMudo Jr Sidebar
+name: Build UsahoDen v8.98 - RangMudo Jr Sidebar FIX
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Build APK UsahoDen v8.97
+    name: Build APK UsahoDen v8.98
     runs-on: ubuntu-latest
 
     steps:
@@ -30,52 +30,78 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install Android SDK Packages
+      - name: Use Preinstalled Android SDK
         shell: bash
         run: |
           set -e
-          yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          test -d "$SDK" || {
+            echo "Android SDK tidak ditemukan: $SDK"
+            exit 1
+          }
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          test -d "$SDK/platforms/android-35" || {
+            echo "SDK Platform 35 tidak tersedia."
+            exit 1
+          }
+          test -d "$SDK/build-tools/35.0.0" || {
+            echo "Build Tools 35.0.0 tidak tersedia."
+            exit 1
+          }
 
-      - name: Extract and Verify Source
+      - name: Extract Exact v8.98 Source
         shell: bash
         run: |
           set -e
-          ZIP="UsahoDen-v8.97-RangMudo-Jr-Sidebar-FULL-SOURCE.zip"
-          test -f "$ZIP" || { echo "ZIP source v8.97 tidak ditemukan di root repository."; exit 1; }
-          mkdir -p extracted-source
+          ZIP="UsahoDen-v8.98-RangMudo-Jr-Sidebar-FIX.zip"
+          test -f "$ZIP" || {
+            echo "ZIP source v8.98 tidak ditemukan di root repository."
+            exit 1
+          }
+          rm -rf extracted-source
+          mkdir extracted-source
           unzip -oq "$ZIP" -d extracted-source
-          PROJECT_DIR=$(find extracted-source -type f -path '*/app/build.gradle' -print -quit | sed 's#/app/build.gradle##')
-          test -n "$PROJECT_DIR" || { echo "app/build.gradle tidak ditemukan dalam ZIP."; exit 1; }
+          PROJECT_DIR=$(find extracted-source -type f \
+            -path '*/app/build.gradle' -print -quit | \
+            sed 's#/app/build.gradle##')
+          test -n "$PROJECT_DIR" || {
+            echo "app/build.gradle tidak ditemukan dalam ZIP."
+            exit 1
+          }
+          rm -rf app
           cp -a "$PROJECT_DIR"/. .
           test -f app/src/main/assets/index.html
-          grep -q 'ℜ𝔞𝔫𝔤𝔐𝔲𝔡𝔬 𝔍𝔯' app/src/main/assets/index.html
-          grep -q 'v897-rangmudo-drawer-wordmark' app/src/main/assets/index.html
-          grep -q "versionName '8.97'" app/build.gradle
+          grep -q 'v8.98-rangmudo-sidebar-source-lock' \
+            app/src/main/assets/index.html
+          grep -q 'class="drawer-brand-name rangmudo-drawer-name">ℜ𝔞𝔫𝔤𝔐𝔲𝔡𝔬 𝔍𝔯</div>' \
+            app/src/main/assets/index.html
+          grep -q "versionName '8.98'" app/build.gradle
+          echo "Source v8.98 RangMudo Jr terverifikasi."
 
       - name: Build APK
         shell: bash
         run: |
           set -e
-          gradle :app:clean :app:assembleDebug --no-daemon --stacktrace
+          gradle :app:clean :app:assembleDebug \
+            --no-daemon --stacktrace
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
-          cp "$APK" UsahoDen-v8.97-RangMudo-Jr-Sidebar.apk
+          cp "$APK" UsahoDen-v8.98-RangMudo-Jr-Sidebar-FIX.apk
 
       - name: Verify APK
         shell: bash
         run: |
-          APKSIGNER=$(find "$ANDROID_HOME/build-tools/35.0.0" -type f -name apksigner | head -1)
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools/35.0.0" \
+            -type f -name apksigner | head -1)
           test -n "$APKSIGNER"
-          "$APKSIGNER" verify app/build/outputs/apk/debug/app-debug.apk
+          "$APKSIGNER" verify \
+            app/build/outputs/apk/debug/app-debug.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v8.97-RangMudo-Jr-Sidebar
-          path: UsahoDen-v8.97-RangMudo-Jr-Sidebar.apk
+          name: UsahoDen-v8.98-RangMudo-Jr-Sidebar-FIX
+          path: UsahoDen-v8.98-RangMudo-Jr-Sidebar-FIX.apk
           if-no-files-found: error
           retention-days: 30
