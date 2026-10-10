@@ -30,26 +30,7 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-        with:
-          sdk-path: ${{ runner.temp }}/android-sdk
-
-      - name: Install Android SDK Packages
-        shell: bash
-        run: |
-          set -e
-          SDK="${{ runner.temp }}/android-sdk"
-          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
-          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
-
-          "$SDK/cmdline-tools/latest/bin/sdkmanager" \
-            --sdk_root="$SDK" \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
-
-      - name: Prepare Source
+      - name: Prepare Source v8.94
         shell: bash
         run: |
           set -e
@@ -63,21 +44,45 @@ jobs:
               -path '*/app/build.gradle' \
               -print -quit | sed 's#/app/build.gradle##')
 
-            if [ -z "$PROJECT_DIR" ]; then
-              echo "Proyek Android tidak ditemukan di ZIP."
-              exit 1
-            fi
-
+            test -n "$PROJECT_DIR"
             cp -a "$PROJECT_DIR"/. .
           fi
 
           test -f app/build.gradle
           test -f app/src/main/assets/index.html
-
           grep -q 'v894-home-hero-quarter-smaller' \
             app/src/main/assets/index.html
-
           grep -q "versionName '8.94'" app/build.gradle
+
+      - name: Locate Android SDK
+        shell: bash
+        run: |
+          set -e
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          test -x "$SDK/cmdline-tools/latest/bin/sdkmanager" || {
+            echo "SDK manager tidak ditemukan: $SDK"
+            exit 1
+          }
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+
+      - name: Install Missing SDK Packages
+        shell: bash
+        run: |
+          set -e
+          SDK="$ANDROID_HOME"
+          if [ ! -d "$SDK/platforms/android-35" ] || \
+             [ ! -d "$SDK/build-tools/35.0.0" ]; then
+            yes | "$SDK/cmdline-tools/latest/bin/sdkmanager" \
+              --sdk_root="$SDK" --licenses || true
+            "$SDK/cmdline-tools/latest/bin/sdkmanager" \
+              --sdk_root="$SDK" \
+              "platforms;android-35" \
+              "build-tools;35.0.0" \
+              "platform-tools"
+          fi
+          test -d "$SDK/platforms/android-35"
+          test -d "$SDK/build-tools/35.0.0"
 
       - name: Build APK
         shell: bash
@@ -85,7 +90,6 @@ jobs:
           set -e
           gradle :app:clean :app:assembleDebug \
             --no-daemon --stacktrace
-
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
           cp "$APK" UsahoDen-v8.94.apk
