@@ -1,5 +1,5 @@
 
-name: Build UsahoDen v9.04 Menu Heading Fix
+name: Build UsahoDen v9.04 Menu Heading Fix v2
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Build and Sign APK
+    name: Build and Sign APK v2
     runs-on: ubuntu-latest
 
     steps:
@@ -40,7 +40,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          ZIP_FILE="UsahoDen-v9.04-Menu-Heading-Fix-Bottom-Space.zip"
+          ZIP_FILE="UsahoDen-v9.04-Menu-Heading-Fix-Bottom-Space-v2.zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
             echo "::error::ZIP tidak ditemukan: $ZIP_FILE"
@@ -57,7 +57,7 @@ jobs:
             -print -quit)"
 
           if [ -z "$GRADLE_FILE" ]; then
-            echo "::error::File app/build.gradle tidak ditemukan dalam ZIP."
+            echo "::error::File app/build.gradle tidak ditemukan."
             exit 1
           fi
 
@@ -149,16 +149,16 @@ jobs:
             --ks-key-alias "$KEY_ALIAS" \
             --ks-pass env:KS_PASS \
             --key-pass env:KEY_PASS \
-            --out output/UsahoDen-v9.04-Menu-Heading-Fix-SIGNED.apk \
+            --out output/UsahoDen-v9.04-Menu-Heading-Fix-v2-SIGNED.apk \
             "$APK"
 
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
             --verbose --print-certs \
-            output/UsahoDen-v9.04-Menu-Heading-Fix-SIGNED.apk
+            output/UsahoDen-v9.04-Menu-Heading-Fix-v2-SIGNED.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v9.04-Menu-Heading-Fix-SIGNED
-          path: output/UsahoDen-v9.04-Menu-Heading-Fix-SIGNED.apk
+          name: UsahoDen-v9.04-Menu-Heading-Fix-v2-SIGNED
+          path: output/UsahoDen-v9.04-Menu-Heading-Fix-v2-SIGNED.apk
           if-no-files-found: error
