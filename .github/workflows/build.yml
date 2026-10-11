@@ -1,5 +1,5 @@
 
-name: Build UsahoDen v9.04 Menu Compact Scroll
+name: Build UsahoDen v9.04 All Menu Compact Signed
 
 on:
   workflow_dispatch:
@@ -40,7 +40,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          ZIP_FILE="UsahoDen-v9.04-Header-Menu-Compact-Scroll.zip"
+          ZIP_FILE="UsahoDen-v9.04-Header-Menu-All-Compact-Scroll.zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
             echo "::error::ZIP tidak ditemukan: $ZIP_FILE"
@@ -57,7 +57,7 @@ jobs:
             -print -quit)"
 
           if [ -z "$GRADLE_FILE" ]; then
-            echo "::error::File app/build.gradle tidak ditemukan."
+            echo "::error::app/build.gradle tidak ditemukan dalam ZIP."
             exit 1
           fi
 
@@ -102,7 +102,7 @@ jobs:
             gradle --no-daemon assembleDebug
           fi
 
-      - name: Decode Keystore
+      - name: Decode Existing Keystore
         shell: bash
         env:
           KEYSTORE_BASE64: ${{ secrets.TOKOKU_KEYSTORE_BASE64 }}
@@ -110,7 +110,7 @@ jobs:
           set -euo pipefail
 
           if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::error::Secret TOKOKU_KEYSTORE_BASE64 kosong."
+            echo "::error::Secret TOKOKU_KEYSTORE_BASE64 kosong atau tidak tersedia."
             exit 1
           fi
 
@@ -149,16 +149,16 @@ jobs:
             --ks-key-alias "$KEY_ALIAS" \
             --ks-pass env:KS_PASS \
             --key-pass env:KEY_PASS \
-            --out output/UsahoDen-v9.04-Menu-Compact-Scroll-SIGNED.apk \
+            --out output/UsahoDen-v9.04-Menu-All-Compact-SIGNED.apk \
             "$APK"
 
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
             --verbose --print-certs \
-            output/UsahoDen-v9.04-Menu-Compact-Scroll-SIGNED.apk
+            output/UsahoDen-v9.04-Menu-All-Compact-SIGNED.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v9.04-Menu-Compact-Scroll-SIGNED
-          path: output/UsahoDen-v9.04-Menu-Compact-Scroll-SIGNED.apk
+          name: UsahoDen-v9.04-Menu-All-Compact-SIGNED
+          path: output/UsahoDen-v9.04-Menu-All-Compact-SIGNED.apk
           if-no-files-found: error
