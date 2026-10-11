@@ -1,5 +1,5 @@
 
-name: Build UsahoDen v9.04 All Menu Compact Signed
+name: Build UsahoDen v9.04 Menu Heading Fix
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Build APK Signed
+    name: Build and Sign APK
     runs-on: ubuntu-latest
 
     steps:
@@ -40,7 +40,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          ZIP_FILE="UsahoDen-v9.04-Header-Menu-All-Compact-Scroll.zip"
+          ZIP_FILE="UsahoDen-v9.04-Menu-Heading-Fix-Bottom-Space.zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
             echo "::error::ZIP tidak ditemukan: $ZIP_FILE"
@@ -57,7 +57,7 @@ jobs:
             -print -quit)"
 
           if [ -z "$GRADLE_FILE" ]; then
-            echo "::error::app/build.gradle tidak ditemukan dalam ZIP."
+            echo "::error::File app/build.gradle tidak ditemukan dalam ZIP."
             exit 1
           fi
 
@@ -110,7 +110,7 @@ jobs:
           set -euo pipefail
 
           if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::error::Secret TOKOKU_KEYSTORE_BASE64 kosong atau tidak tersedia."
+            echo "::error::Secret TOKOKU_KEYSTORE_BASE64 kosong."
             exit 1
           fi
 
@@ -149,16 +149,16 @@ jobs:
             --ks-key-alias "$KEY_ALIAS" \
             --ks-pass env:KS_PASS \
             --key-pass env:KEY_PASS \
-            --out output/UsahoDen-v9.04-Menu-All-Compact-SIGNED.apk \
+            --out output/UsahoDen-v9.04-Menu-Heading-Fix-SIGNED.apk \
             "$APK"
 
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
             --verbose --print-certs \
-            output/UsahoDen-v9.04-Menu-All-Compact-SIGNED.apk
+            output/UsahoDen-v9.04-Menu-Heading-Fix-SIGNED.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v9.04-Menu-All-Compact-SIGNED
-          path: output/UsahoDen-v9.04-Menu-All-Compact-SIGNED.apk
+          name: UsahoDen-v9.04-Menu-Heading-Fix-SIGNED
+          path: output/UsahoDen-v9.04-Menu-Heading-Fix-SIGNED.apk
           if-no-files-found: error
