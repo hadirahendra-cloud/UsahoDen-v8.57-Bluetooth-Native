@@ -1,18 +1,16 @@
-
-name: Build UsahoDen v9.04 Customer Sticky Compact v3 SIGNED
+name: Build UsahoDen v9.05 - Customer Search FIX
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    branches: [main]
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: Build and Sign APK
+    name: Build and sign APK v9.05
     runs-on: ubuntu-latest
 
     steps:
@@ -25,139 +23,133 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
-        with:
-          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
-
-      - name: Setup Gradle
+      - name: Setup Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
 
-      - name: Extract Source
+      - name: Prepare Android SDK
+        shell: bash
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          test -d "$SDK" || {
+            echo "Android SDK tidak ditemukan: $SDK"
+            exit 1
+          }
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+
+          SDKMANAGER=$(find "$SDK/cmdline-tools" -name sdkmanager -type f 2>/dev/null | head -n 1 || true)
+
+          if [ ! -d "$SDK/platforms/android-35" ] || [ ! -d "$SDK/build-tools/35.0.0" ]; then
+            test -n "$SDKMANAGER" || {
+              echo "SDK Manager tidak ditemukan"
+              exit 1
+            }
+            yes | "$SDKMANAGER" --sdk_root="$SDK" --licenses || true
+            "$SDKMANAGER" --sdk_root="$SDK" \
+              "platform-tools" \
+              "platforms;android-35" \
+              "build-tools;35.0.0"
+          fi
+
+          test -x "$SDK/build-tools/35.0.0/apksigner"
+
+      - name: Prepare and Verify Source
         shell: bash
         run: |
           set -euo pipefail
 
-          ZIP_NAME="UsahoDen-v9.04-Data-Customer-Sticky-Compact-Title-v3.zip"
-          ZIP_FILE="$(find . -type f -name "$ZIP_NAME" -print -quit)"
+          ZIP="UsahoDen-v9.05-Customer-Search-FIX.zip"
 
-          if [ -z "$ZIP_FILE" ]; then
-            echo "::error::ZIP tidak ditemukan: $ZIP_NAME"
-            find . -type f -iname '*.zip' -print || true
+          test -f "$ZIP" || {
+            echo "ZIP source tidak ditemukan di root repository: $ZIP"
             exit 1
-          fi
+          }
 
-          mkdir -p extracted
-          unzip -oq "$ZIP_FILE" -d extracted
+          mkdir -p extracted-source
+          unzip -oq "$ZIP" -d extracted-source
 
-          GRADLE_FILE="$(find extracted -type f \
-            \( -path '*/app/build.gradle' \
-            -o -path '*/app/build.gradle.kts' \) \
-            -print -quit)"
+          PROJECT_DIR=$(find extracted-source -type f \
+            -path '*/app/build.gradle' -print -quit |
+            sed 's#/app/build.gradle##')
 
-          if [ -z "$GRADLE_FILE" ]; then
-            echo "::error::app/build.gradle tidak ditemukan dalam ZIP."
+          test -n "$PROJECT_DIR" || {
+            echo "app/build.gradle tidak ditemukan"
             exit 1
-          fi
+          }
 
-          PROJECT_DIR="$(dirname "$(dirname "$GRADLE_FILE")")"
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "GRADLE_FILE=$GRADLE_FILE" >> "$GITHUB_ENV"
+          cp -a "$PROJECT_DIR"/. .
 
-          echo "Proyek ditemukan: $PROJECT_DIR"
+          test -f app/src/main/assets/index.html
 
-      - name: Set Version
-        shell: bash
-        run: |
-          set -euo pipefail
-          FILE="$GRADLE_FILE"
+          grep -q 'v9.05-customer-search-fix' \
+            app/src/main/assets/index.html
 
-          if [[ "$FILE" == *.kts ]]; then
-            sed -i -E \
-              's/versionCode[[:space:]]*=[[:space:]]*[0-9]+/versionCode = 904/' "$FILE"
-            sed -i -E \
-              's/versionName[[:space:]]*=[[:space:]]*"[^"]*"/versionName = "9.04"/' "$FILE"
-          else
-            sed -i -E \
-              's/versionCode[[:space:]]+[0-9]+/versionCode 904/' "$FILE"
-            sed -i -E \
-              "s/versionName[[:space:]]+['\"][^'\"]*['\"]/versionName '9.04'/" "$FILE"
-          fi
-
-          grep -nE 'applicationId|versionCode|versionName' "$FILE"
+          grep -q "applicationId 'com.usahoden.app'" app/build.gradle
+          grep -q 'versionCode 905' app/build.gradle
+          grep -q "versionName '9.05'" app/build.gradle
 
       - name: Build APK
         shell: bash
         run: |
           set -euo pipefail
-          cd "$PROJECT_DIR"
 
-          if [ -f gradlew ]; then
-            chmod +x gradlew
-            ./gradlew --no-daemon assembleDebug
-          else
-            gradle --no-daemon assembleDebug
-          fi
+          gradle :app:clean :app:assembleDebug \
+            --no-daemon --stacktrace
 
-      - name: Decode Existing Keystore
+          test -s app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Sign APK with Permanent RangMudo Key
         shell: bash
         env:
-          KEYSTORE_BASE64: ${{ secrets.TOKOKU_KEYSTORE_BASE64 }}
-        run: |
-          set -euo pipefail
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::error::Secret keystore kosong."
-            exit 1
-          fi
-
-          printf '%s' "$KEYSTORE_BASE64" \
-            | base64 --decode > "$RUNNER_TEMP/usahoden.jks"
-
-          test -s "$RUNNER_TEMP/usahoden.jks"
-
-      - name: Sign and Verify APK
-        shell: bash
-        env:
-          KS_PASS: ${{ secrets.TOKOKU_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.TOKOKU_KEY_ALIAS }}
-          KEY_PASS: ${{ secrets.TOKOKU_KEY_PASSWORD }}
+          TOKOKU_KEYSTORE_BASE64: ${{ secrets.TOKOKU_KEYSTORE_BASE64 }}
+          TOKOKU_KEYSTORE_PASSWORD: ${{ secrets.TOKOKU_KEYSTORE_PASSWORD }}
+          TOKOKU_KEY_ALIAS: ${{ secrets.TOKOKU_KEY_ALIAS }}
+          TOKOKU_KEY_PASSWORD: ${{ secrets.TOKOKU_KEY_PASSWORD }}
         run: |
           set -euo pipefail
 
-          if [ -z "$KS_PASS" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASS" ]; then
-            echo "::error::Password atau alias keystore kosong."
+          test -n "$TOKOKU_KEYSTORE_BASE64" || {
+            echo "Secret TOKOKU_KEYSTORE_BASE64 belum diisi"
             exit 1
-          fi
+          }
 
-          APK="$(find "$PROJECT_DIR" -type f \
-            -path '*/build/outputs/apk/debug/*.apk' \
-            -print -quit)"
-
-          if [ -z "$APK" ]; then
-            echo "::error::APK hasil build tidak ditemukan."
+          test -n "$TOKOKU_KEYSTORE_PASSWORD" || {
+            echo "Secret TOKOKU_KEYSTORE_PASSWORD belum diisi"
             exit 1
-          fi
+          }
 
-          mkdir -p output
+          test -n "$TOKOKU_KEY_ALIAS" || {
+            echo "Secret TOKOKU_KEY_ALIAS belum diisi"
+            exit 1
+          }
+
+          test -n "$TOKOKU_KEY_PASSWORD" || {
+            echo "Secret TOKOKU_KEY_PASSWORD belum diisi"
+            exit 1
+          }
+
+          printf '%s' "$TOKOKU_KEYSTORE_BASE64" |
+            base64 --decode > "$RUNNER_TEMP/rangmudo-release.jks"
 
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
-            --ks "$RUNNER_TEMP/usahoden.jks" \
-            --ks-key-alias "$KEY_ALIAS" \
-            --ks-pass env:KS_PASS \
-            --key-pass env:KEY_PASS \
-            --out output/UsahoDen-v9.04-Customer-Sticky-Compact-v3-SIGNED.apk \
-            "$APK"
+            --ks "$RUNNER_TEMP/rangmudo-release.jks" \
+            --ks-key-alias "$TOKOKU_KEY_ALIAS" \
+            --ks-pass env:TOKOKU_KEYSTORE_PASSWORD \
+            --key-pass env:TOKOKU_KEY_PASSWORD \
+            --out UsahoDen-v9.05-Customer-Search-FIX.apk \
+            app/build/outputs/apk/debug/app-debug.apk
 
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
             --verbose --print-certs \
-            output/UsahoDen-v9.04-Customer-Sticky-Compact-v3-SIGNED.apk
+            UsahoDen-v9.05-Customer-Search-FIX.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v9.04-Customer-Sticky-Compact-v3-SIGNED
-          path: output/UsahoDen-v9.04-Customer-Sticky-Compact-v3-SIGNED.apk
+          name: UsahoDen-v9.05-Customer-Search-FIX-SIGNED
+          path: UsahoDen-v9.05-Customer-Search-FIX.apk
           if-no-files-found: error
           retention-days: 30
