@@ -1,5 +1,5 @@
 
-name: Build UsahoDen v9.04 Kasir Header Fix
+name: Build UsahoDen v9.04 Data Customer Scroll Fix
 
 on:
   workflow_dispatch:
@@ -40,7 +40,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          ZIP_FILE="UsahoDen-v9.04-Kasir-Header-Tidak-Terpotong.zip"
+          ZIP_FILE="UsahoDen-v9.04-Data-Customer-Scroll-Fix.zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
             echo "::error::ZIP tidak ditemukan: $ZIP_FILE"
@@ -149,16 +149,16 @@ jobs:
             --ks-key-alias "$KEY_ALIAS" \
             --ks-pass env:KS_PASS \
             --key-pass env:KEY_PASS \
-            --out output/UsahoDen-v9.04-Kasir-Header-Fix-SIGNED.apk \
+            --out output/UsahoDen-v9.04-Data-Customer-Scroll-Fix-SIGNED.apk \
             "$APK"
 
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
             --verbose --print-certs \
-            output/UsahoDen-v9.04-Kasir-Header-Fix-SIGNED.apk
+            output/UsahoDen-v9.04-Data-Customer-Scroll-Fix-SIGNED.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v9.04-Kasir-Header-Fix-SIGNED
-          path: output/UsahoDen-v9.04-Kasir-Header-Fix-SIGNED.apk
+          name: UsahoDen-v9.04-Data-Customer-Scroll-Fix-SIGNED
+          path: output/UsahoDen-v9.04-Data-Customer-Scroll-Fix-SIGNED.apk
           if-no-files-found: error
