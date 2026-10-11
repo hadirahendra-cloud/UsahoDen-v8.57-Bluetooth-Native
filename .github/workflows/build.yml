@@ -1,5 +1,5 @@
 
-name: Build UsahoDen v9.04 Data Customer Scroll Fix v2
+name: Build UsahoDen v9.04 Customer Sticky Compact v3
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Build and Sign APK
+    name: Build APK Customer Sticky v3
     runs-on: ubuntu-latest
 
     steps:
@@ -30,54 +30,75 @@ jobs:
         with:
           packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
-      - name: Setup Gradle
+      - name: Setup Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
 
-      - name: Extract Source
+      - name: Extract and Prepare Source
         shell: bash
         run: |
           set -euo pipefail
 
-          ZIP_NAME="UsahoDen-v9.04-Data-Customer-Scroll-Fix-v2.zip"
+          ZIP_NAME="UsahoDen-v9.04-Data-Customer-Sticky-Compact-Title-v3.zip"
+
           ZIP_FILE="$(find . -type f -name "$ZIP_NAME" \
-            -not -path './source/*' -print -quit)"
+            -not -path './extracted-source/*' \
+            -print -quit)"
 
           if [ -z "$ZIP_FILE" ]; then
             echo "::error::ZIP tidak ditemukan: $ZIP_NAME"
-            echo "ZIP yang tersedia:"
+            echo "ZIP yang tersedia di repository:"
             find . -type f -iname '*.zip' -print || true
             exit 1
           fi
 
           echo "ZIP ditemukan: $ZIP_FILE"
-          mkdir -p source
-          unzip -oq "$ZIP_FILE" -d source
 
-          GRADLE_FILE="$(find source -type f \
-            \( -path '*/app/build.gradle' \
-            -o -path '*/app/build.gradle.kts' \) \
-            -print -quit)"
+          mkdir -p extracted-source
+          unzip -oq "$ZIP_FILE" -d extracted-source
 
-          if [ -z "$GRADLE_FILE" ]; then
-            echo "::error::File app/build.gradle tidak ditemukan."
-            find source -maxdepth 5 -type f -print | head -100
+          PROJECT_DIR="$(find extracted-source -type f \
+            -path '*/app/build.gradle' \
+            -print -quit | sed 's#/app/build.gradle##')"
+
+          if [ -z "$PROJECT_DIR" ]; then
+            PROJECT_DIR="$(find extracted-source -type f \
+              -path '*/app/build.gradle.kts' \
+              -print -quit | sed 's#/app/build.gradle.kts##')"
+          fi
+
+          if [ -z "$PROJECT_DIR" ]; then
+            echo "::error::Folder proyek Android tidak ditemukan di ZIP."
+            find extracted-source -maxdepth 5 -type f -print | head -100
             exit 1
           fi
 
-          PROJECT_DIR="$(dirname "$(dirname "$GRADLE_FILE")")"
+          cp -a "$PROJECT_DIR"/. .
 
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "GRADLE_FILE=$GRADLE_FILE" >> "$GITHUB_ENV"
+          if [ ! -f app/src/main/assets/index.html ]; then
+            echo "::error::File app/src/main/assets/index.html tidak ditemukan."
+            exit 1
+          fi
 
-          echo "Proyek ditemukan: $PROJECT_DIR"
+          if [ ! -f app/build.gradle ] && [ ! -f app/build.gradle.kts ]; then
+            echo "::error::File Gradle aplikasi tidak ditemukan."
+            exit 1
+          fi
+
+          echo "Source berhasil disiapkan."
+          echo "Proyek: $PROJECT_DIR"
 
       - name: Set Version 9.04
         shell: bash
         run: |
           set -euo pipefail
-          FILE="$GRADLE_FILE"
+
+          if [ -f app/build.gradle ]; then
+            FILE="app/build.gradle"
+          else
+            FILE="app/build.gradle.kts"
+          fi
 
           if grep -qE 'versionCode[[:space:]]*=' "$FILE"; then
             sed -i -E \
@@ -101,72 +122,32 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cd "$PROJECT_DIR"
+          gradle :app:clean :app:assembleDebug --no-daemon --stacktrace
 
-          if [ -f gradlew ]; then
-            chmod +x gradlew
-            ./gradlew --no-daemon assembleDebug
-          else
-            gradle --no-daemon assembleDebug
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+
+          if [ ! -s "$APK" ]; then
+            echo "::error::APK tidak berhasil dibuat."
+            exit 1
           fi
 
-      - name: Decode Existing Keystore
+          cp "$APK" UsahoDen-v9.04-Data-Customer-Sticky-Compact-v3.apk
+
+      - name: Verify APK
         shell: bash
-        env:
-          KEYSTORE_BASE64: ${{ secrets.TOKOKU_KEYSTORE_BASE64 }}
         run: |
           set -euo pipefail
 
-          if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::error::Secret TOKOKU_KEYSTORE_BASE64 kosong."
-            exit 1
-          fi
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
 
-          printf '%s' "$KEYSTORE_BASE64" \
-            | base64 --decode > "$RUNNER_TEMP/usahoden.jks"
-
-          test -s "$RUNNER_TEMP/usahoden.jks"
-
-      - name: Sign and Verify APK
-        shell: bash
-        env:
-          KS_PASS: ${{ secrets.TOKOKU_KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.TOKOKU_KEY_ALIAS }}
-          KEY_PASS: ${{ secrets.TOKOKU_KEY_PASSWORD }}
-        run: |
-          set -euo pipefail
-
-          if [ -z "$KS_PASS" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASS" ]; then
-            echo "::error::Secret password atau alias keystore kosong."
-            exit 1
-          fi
-
-          APK="$(find "$PROJECT_DIR" -type f \
-            -path '*/build/outputs/apk/debug/*.apk' \
-            -print -quit)"
-
-          if [ -z "$APK" ]; then
-            echo "::error::APK hasil build tidak ditemukan."
-            exit 1
-          fi
-
-          mkdir -p output
-
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
-            --ks "$RUNNER_TEMP/usahoden.jks" \
-            --ks-key-alias "$KEY_ALIAS" \
-            --ks-pass env:KS_PASS \
-            --key-pass env:KEY_PASS \
-            --out output/UsahoDen-v9.04-Data-Customer-Scroll-Fix-v2-SIGNED.apk \
-            "$APK"
-
-          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
-            --verbose --print-certs \
-            output/UsahoDen-v9.04-Data-Customer-Scroll-Fix-v2-SIGNED.apk
+          test -s "$APK"
+          "$APKSIGNER" verify --verbose "$APK"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v9.04-Data-Customer-Scroll-Fix-v2-SIGNED
-          path: output/UsahoDen-v9.04-Data-Customer-Scroll-Fix-v2-SIGNED.apk
+          name: UsahoDen-v9.04-Data-Customer-Sticky-Compact-v3
+          path: UsahoDen-v9.04-Data-Customer-Sticky-Compact-v3.apk
           if-no-files-found: error
+          retention-days: 30
