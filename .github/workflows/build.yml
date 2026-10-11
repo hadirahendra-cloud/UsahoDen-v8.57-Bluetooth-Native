@@ -1,5 +1,5 @@
 
-name: Build UsahoDen v9.04 Multiwarna
+name: Build UsahoDen v9.04 Multiwarna Signed
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Build APK Multiwarna
+    name: Build and Sign APK
     runs-on: ubuntu-latest
 
     steps:
@@ -28,7 +28,7 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
         with:
-          packages: 'platform-tools'
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -38,46 +38,58 @@ jobs:
       - name: Extract Source
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
+
           ZIP_FILE="UsahoDen-v9.04-Etalase-Harga-Multiwarna.zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
             echo "::error::ZIP tidak ditemukan: $ZIP_FILE"
-            echo "File ZIP yang tersedia:"
-            ls -lah *.zip || true
+            ls -lah
             exit 1
           fi
 
           mkdir -p source
           unzip -q "$ZIP_FILE" -d source
 
-          PROJECT_DIR="$(find source -type f \
+          GRADLE_FILE="$(find source -type f \
             \( -path '*/app/build.gradle' \
             -o -path '*/app/build.gradle.kts' \) \
-            -print -quit | xargs -r dirname | xargs -r dirname)"
+            -print -quit)"
 
-          if [ -z "$PROJECT_DIR" ] || [ ! -d "$PROJECT_DIR/app" ]; then
-            echo "::error::Folder proyek Android tidak ditemukan di dalam ZIP."
-            find source -maxdepth 4 -type f | head -100
+          if [ -z "$GRADLE_FILE" ]; then
+            echo "::error::File app/build.gradle tidak ditemukan."
             exit 1
           fi
 
+          PROJECT_DIR="$(dirname "$(dirname "$GRADLE_FILE")")"
+
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Proyek ditemukan: $PROJECT_DIR"
+          echo "GRADLE_FILE=$GRADLE_FILE" >> "$GITHUB_ENV"
 
-      - name: Check Android SDK
+      - name: Set Version 9.04
         shell: bash
         run: |
-          set -e
-          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT}}"
-          echo "Android SDK: $SDK"
-          ls -la "$SDK"
-          ls -la "$SDK/platform-tools"
+          set -euo pipefail
+          FILE="$GRADLE_FILE"
 
-      - name: Build APK
+          if [[ "$FILE" == *.kts ]]; then
+            sed -i -E \
+              "s/versionCode[[:space:]]*=[[:space:]]*[0-9]+/versionCode = 904/" "$FILE"
+            sed -i -E \
+              "s/versionName[[:space:]]*=[[:space:]]*\"[^\"]*\"/versionName = \"9.04\"/" "$FILE"
+          else
+            sed -i -E \
+              "s/versionCode[[:space:]]+[0-9]+/versionCode 904/" "$FILE"
+            sed -i -E \
+              "s/versionName[[:space:]]+'[^']*'/versionName '9.04'/" "$FILE"
+          fi
+
+          grep -E 'applicationId|versionCode|versionName' "$FILE"
+
+      - name: Build Debug APK
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
           cd "$PROJECT_DIR"
 
           if [ -f gradlew ]; then
@@ -87,27 +99,61 @@ jobs:
             gradle --no-daemon assembleDebug
           fi
 
-      - name: Check APK
+      - name: Decode Keystore
         shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.TOKOKU_KEYSTORE_BASE64 }}
         run: |
-          set -e
+          set -euo pipefail
+
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::Secret TOKOKU_KEYSTORE_BASE64 kosong atau tidak tersedia."
+            exit 1
+          fi
+
+          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/usahoden.jks"
+          test -s "$RUNNER_TEMP/usahoden.jks"
+
+      - name: Sign APK with Existing Keystore
+        shell: bash
+        env:
+          KS_PASS: ${{ secrets.TOKOKU_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.TOKOKU_KEY_ALIAS }}
+          KEY_PASS: ${{ secrets.TOKOKU_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$KS_PASS" ] || [ -z "$KEY_ALIAS" ] || [ -z "$KEY_PASS" ]; then
+            echo "::error::Secret password atau alias keystore kosong."
+            exit 1
+          fi
+
           APK="$(find "$PROJECT_DIR" -type f \
-            -path '*/build/outputs/apk/*/*.apk' \
-            -name '*debug*.apk' -print -quit)"
+            -path '*/build/outputs/apk/debug/*.apk' \
+            -print -quit)"
 
           if [ -z "$APK" ]; then
-            echo "::error::APK debug tidak ditemukan."
-            find "$PROJECT_DIR" -path '*/build/outputs/apk/*' -type f
+            echo "::error::APK hasil build tidak ditemukan."
             exit 1
           fi
 
           mkdir -p output
-          cp "$APK" output/UsahoDen-v9.04-Multiwarna-debug.apk
-          echo "APK berhasil ditemukan."
 
-      - name: Upload APK
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" sign \
+            --ks "$RUNNER_TEMP/usahoden.jks" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --ks-pass env:KS_PASS \
+            --key-pass env:KEY_PASS \
+            --out output/UsahoDen-v9.04-Multiwarna-SIGNED.apk \
+            "$APK"
+
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
+            --verbose --print-certs \
+            output/UsahoDen-v9.04-Multiwarna-SIGNED.apk
+
+      - name: Upload Signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v9.04-Multiwarna
-          path: output/UsahoDen-v9.04-Multiwarna-debug.apk
+          name: UsahoDen-v9.04-Multiwarna-SIGNED
+          path: output/UsahoDen-v9.04-Multiwarna-SIGNED.apk
           if-no-files-found: error
