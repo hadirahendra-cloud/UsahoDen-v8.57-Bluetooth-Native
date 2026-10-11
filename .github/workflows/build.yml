@@ -40,16 +40,22 @@ jobs:
         run: |
           set -euo pipefail
 
-          ZIP_FILE="UsahoDen-v9.04-Data-Customer-Scroll-Fix.zip"
+          ZIP_FILE="$(find . -type f \
+            -name 'UsahoDen-v9.04-Data-Customer-Scroll-Fix.zip' \
+            -not -path './source/*' \
+            -print -quit)"
 
-          if [ ! -f "$ZIP_FILE" ]; then
-            echo "::error::ZIP tidak ditemukan: $ZIP_FILE"
-            ls -lah
+          if [ -z "$ZIP_FILE" ]; then
+            echo "::error::ZIP tidak ditemukan di repository."
+            echo "ZIP yang tersedia:"
+            find . -type f -iname '*.zip' -print || true
             exit 1
           fi
 
+          echo "ZIP ditemukan: $ZIP_FILE"
+
           mkdir -p source
-          unzip -q "$ZIP_FILE" -d source
+          unzip -oq "$ZIP_FILE" -d source
 
           GRADLE_FILE="$(find source -type f \
             \( -path '*/app/build.gradle' \
@@ -57,7 +63,8 @@ jobs:
             -print -quit)"
 
           if [ -z "$GRADLE_FILE" ]; then
-            echo "::error::File app/build.gradle tidak ditemukan dalam ZIP."
+            echo "::error::app/build.gradle tidak ditemukan."
+            find source -maxdepth 5 -type f -print | head -100
             exit 1
           fi
 
@@ -66,28 +73,40 @@ jobs:
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
           echo "GRADLE_FILE=$GRADLE_FILE" >> "$GITHUB_ENV"
 
-          echo "Source ditemukan: $PROJECT_DIR"
+          echo "Folder proyek: $PROJECT_DIR"
+          echo "File Gradle: $GRADLE_FILE"
+
+      - name: Check Application Configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Konfigurasi aplikasi:"
+          grep -nE 'applicationId|versionCode|versionName|compileSdk|targetSdk' \
+            "$GRADLE_FILE" || true
 
       - name: Set Version 9.04
         shell: bash
         run: |
           set -euo pipefail
-
           FILE="$GRADLE_FILE"
 
-          if [[ "$FILE" == *.kts ]]; then
+          if grep -q 'versionCode[[:space:]]*=' "$FILE"; then
             sed -i -E \
               's/versionCode[[:space:]]*=[[:space:]]*[0-9]+/versionCode = 904/' "$FILE"
+          else
+            sed -i -E \
+              's/versionCode[[:space:]]+[0-9]+/versionCode 904/' "$FILE"
+          fi
+
+          if grep -q 'versionName[[:space:]]*=' "$FILE"; then
             sed -i -E \
               's/versionName[[:space:]]*=[[:space:]]*"[^"]*"/versionName = "9.04"/' "$FILE"
           else
             sed -i -E \
-              's/versionCode[[:space:]]+[0-9]+/versionCode 904/' "$FILE"
-            sed -i -E \
               "s/versionName[[:space:]]+['\"][^'\"]*['\"]/versionName '9.04'/" "$FILE"
           fi
 
-          grep -E 'applicationId|versionCode|versionName' "$FILE"
+          grep -nE 'applicationId|versionCode|versionName' "$FILE"
 
       - name: Build APK
         shell: bash
@@ -139,6 +158,7 @@ jobs:
 
           if [ -z "$APK" ]; then
             echo "::error::APK hasil build tidak ditemukan."
+            find "$PROJECT_DIR" -path '*/build/outputs/apk/*' -type f
             exit 1
           fi
 
