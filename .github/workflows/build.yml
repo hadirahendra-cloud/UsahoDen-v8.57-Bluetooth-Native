@@ -1,5 +1,5 @@
 
-name: Build UsahoDen v9.04 Multiwarna Signed
+name: Build UsahoDen v9.04 Header Multiwarna Signed
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    name: Build and Sign APK
+    name: Build APK UsahoDen v9.04
     runs-on: ubuntu-latest
 
     steps:
@@ -40,7 +40,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          ZIP_FILE="UsahoDen-v9.04-Etalase-Harga-Multiwarna.zip"
+          ZIP_FILE="UsahoDen-v9.04-Header-3Baris-Multiwarna.zip"
 
           if [ ! -f "$ZIP_FILE" ]; then
             echo "::error::ZIP tidak ditemukan: $ZIP_FILE"
@@ -57,7 +57,7 @@ jobs:
             -print -quit)"
 
           if [ -z "$GRADLE_FILE" ]; then
-            echo "::error::File app/build.gradle tidak ditemukan."
+            echo "::error::app/build.gradle tidak ditemukan."
             exit 1
           fi
 
@@ -66,27 +66,30 @@ jobs:
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
           echo "GRADLE_FILE=$GRADLE_FILE" >> "$GITHUB_ENV"
 
+          echo "Source ditemukan: $PROJECT_DIR"
+
       - name: Set Version 9.04
         shell: bash
         run: |
           set -euo pipefail
+
           FILE="$GRADLE_FILE"
 
           if [[ "$FILE" == *.kts ]]; then
             sed -i -E \
-              "s/versionCode[[:space:]]*=[[:space:]]*[0-9]+/versionCode = 904/" "$FILE"
+              's/versionCode[[:space:]]*=[[:space:]]*[0-9]+/versionCode = 904/' "$FILE"
             sed -i -E \
-              "s/versionName[[:space:]]*=[[:space:]]*\"[^\"]*\"/versionName = \"9.04\"/" "$FILE"
+              's/versionName[[:space:]]*=[[:space:]]*"[^"]*"/versionName = "9.04"/' "$FILE"
           else
             sed -i -E \
-              "s/versionCode[[:space:]]+[0-9]+/versionCode 904/" "$FILE"
+              's/versionCode[[:space:]]+[0-9]+/versionCode 904/' "$FILE"
             sed -i -E \
-              "s/versionName[[:space:]]+'[^']*'/versionName '9.04'/" "$FILE"
+              "s/versionName[[:space:]]+['\"][^'\"]*['\"]/versionName '9.04'/" "$FILE"
           fi
 
           grep -E 'applicationId|versionCode|versionName' "$FILE"
 
-      - name: Build Debug APK
+      - name: Build APK
         shell: bash
         run: |
           set -euo pipefail
@@ -107,14 +110,16 @@ jobs:
           set -euo pipefail
 
           if [ -z "$KEYSTORE_BASE64" ]; then
-            echo "::error::Secret TOKOKU_KEYSTORE_BASE64 kosong atau tidak tersedia."
+            echo "::error::Secret TOKOKU_KEYSTORE_BASE64 kosong."
             exit 1
           fi
 
-          printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/usahoden.jks"
+          printf '%s' "$KEYSTORE_BASE64" \
+            | base64 --decode > "$RUNNER_TEMP/usahoden.jks"
+
           test -s "$RUNNER_TEMP/usahoden.jks"
 
-      - name: Sign APK with Existing Keystore
+      - name: Sign and Verify APK
         shell: bash
         env:
           KS_PASS: ${{ secrets.TOKOKU_KEYSTORE_PASSWORD }}
@@ -144,16 +149,16 @@ jobs:
             --ks-key-alias "$KEY_ALIAS" \
             --ks-pass env:KS_PASS \
             --key-pass env:KEY_PASS \
-            --out output/UsahoDen-v9.04-Multiwarna-SIGNED.apk \
+            --out output/UsahoDen-v9.04-Header-Multiwarna-SIGNED.apk \
             "$APK"
 
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify \
             --verbose --print-certs \
-            output/UsahoDen-v9.04-Multiwarna-SIGNED.apk
+            output/UsahoDen-v9.04-Header-Multiwarna-SIGNED.apk
 
-      - name: Upload Signed APK
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: UsahoDen-v9.04-Multiwarna-SIGNED
-          path: output/UsahoDen-v9.04-Multiwarna-SIGNED.apk
+          name: UsahoDen-v9.04-Header-Multiwarna-SIGNED
+          path: output/UsahoDen-v9.04-Header-Multiwarna-SIGNED.apk
           if-no-files-found: error
